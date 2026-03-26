@@ -1,3 +1,4 @@
-relay
-airpipe
+/relay
+/airpipe
+/airpipe-*
 *.exe

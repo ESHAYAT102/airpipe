@@ -1,0 +1,7 @@
+services:
+  relay:
+    image: ghcr.io/sanyam-g/airpipe-relay:latest
+    container_name: airpipe-relay
+    restart: unless-stopped
+    ports:
+      - "8088:8080"

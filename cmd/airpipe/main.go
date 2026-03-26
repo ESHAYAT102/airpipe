@@ -63,7 +63,7 @@ func cmdSend(relay, filePath string) error {
 	httpRelay := strings.Replace(strings.Replace(relay, "wss://", "https://", 1), "ws://", "http://", 1)
 	url := fmt.Sprintf("%s/d/%s#%s", httpRelay, token, crypto.KeyToBase64(key))
 
-	fmt.Println("\n  AirPipe - Send\n")
+	fmt.Print("\n  AirPipe - Send\n\n")
 	fmt.Printf("  File: %s (%s)\n\n", stat.Name(), fmtBytes(stat.Size()))
 	qr.GenerateTerminal(url)
 	fmt.Printf("\n  %s\n\n  🔒 E2E Encrypted\n  ⏳ Waiting...\n\n", url)
@@ -77,12 +77,12 @@ func cmdSend(relay, filePath string) error {
 	if err := sender.WaitForReceiver(5 * time.Minute); err != nil {
 		return err
 	}
-	fmt.Println("  ✓ Connected!\n")
+	fmt.Print("  ✓ Connected!\n\n")
 
 	if err := sender.SendFile(filePath, progress); err != nil {
 		return err
 	}
-	fmt.Println("\n  ✓ Done!\n")
+	fmt.Print("\n  ✓ Done!\n\n")
 	return nil
 }
 
@@ -93,7 +93,7 @@ func cmdReceive(relay, destDir string) error {
 	httpRelay := strings.Replace(strings.Replace(relay, "wss://", "https://", 1), "ws://", "http://", 1)
 	url := fmt.Sprintf("%s/u/%s#%s", httpRelay, token, crypto.KeyToBase64(key))
 
-	fmt.Println("\n  AirPipe - Receive\n")
+	fmt.Print("\n  AirPipe - Receive\n\n")
 	fmt.Printf("  Destination: %s\n\n", destDir)
 	qr.GenerateTerminal(url)
 	fmt.Printf("\n  %s\n\n  🔒 E2E Encrypted\n  ⏳ Waiting...\n\n", url)
