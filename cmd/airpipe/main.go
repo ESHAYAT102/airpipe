@@ -258,5 +258,10 @@ func fmtBytes(b int64) string {
 
 func progress(sent, total int64) {
 	pct := float64(sent) / float64(total) * 100
-	fmt.Printf("\r  [%-40s] %.0f%%", strings.Repeat("█", int(pct/2.5))+strings.Repeat("░", 40-int(pct/2.5)), pct)
+	filled := int(pct / 2.5)
+	if filled > 40 {
+		filled = 40
+	}
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", 40-filled)
+	fmt.Fprintf(os.Stderr, "\r  [%s] %3.0f%% %s/%s", bar, pct, fmtBytes(sent), fmtBytes(total))
 }

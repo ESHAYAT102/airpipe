@@ -31,6 +31,16 @@ func (s *Sender) Connect() error {
 		return fmt.Errorf("failed to connect to relay: %w", err)
 	}
 	s.conn = conn
+
+	versionMsg := NewVersionMessage()
+	encryptedVersion, err := crypto.EncryptChunk(EncodeMessage(versionMsg), s.key)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt version message: %w", err)
+	}
+	if err := s.conn.WriteMessage(websocket.BinaryMessage, encryptedVersion); err != nil {
+		return fmt.Errorf("failed to send version message: %w", err)
+	}
+
 	return nil
 }
 

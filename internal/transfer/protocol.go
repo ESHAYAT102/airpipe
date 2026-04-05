@@ -15,7 +15,10 @@ const (
 	MsgTypeError    MessageType = 0x04
 	MsgTypeChunk    MessageType = 0x10
 	MsgTypeProgress MessageType = 0x11
+	MsgTypeVersion  MessageType = 0x20
 )
+
+const ProtocolVersion byte = 1
 
 type Metadata struct {
 	Filename string `json:"filename"`
@@ -81,6 +84,10 @@ func NewCompleteMessage() Message {
 
 func NewErrorMessage(errStr string) Message {
 	return Message{Type: MsgTypeError, Payload: []byte(errStr)}
+}
+
+func NewVersionMessage() Message {
+	return Message{Type: MsgTypeVersion, Payload: []byte{ProtocolVersion}}
 }
 
 func ParseMetadata(payload []byte) (Metadata, error) {

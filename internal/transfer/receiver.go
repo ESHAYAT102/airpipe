@@ -29,6 +29,29 @@ func (r *Receiver) Connect() error {
 	}
 	r.conn = conn
 
+	// Read and validate protocol version before proceeding
+	r.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	_, versionData, err := r.conn.ReadMessage()
+	if err != nil {
+		return fmt.Errorf("failed to read version message: %w", err)
+	}
+	decryptedVersion, err := crypto.DecryptChunk(versionData, r.key)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt version message: %w", err)
+	}
+	versionMsg, err := DecodeMessage(decryptedVersion)
+	if err != nil {
+		return fmt.Errorf("failed to decode version message: %w", err)
+	}
+	if versionMsg.Type != MsgTypeVersion || len(versionMsg.Payload) == 0 || versionMsg.Payload[0] != ProtocolVersion {
+		got := byte(0)
+		if len(versionMsg.Payload) > 0 {
+			got = versionMsg.Payload[0]
+		}
+		return fmt.Errorf("protocol version mismatch: got %d, expected %d", got, ProtocolVersion)
+	}
+	r.conn.SetReadDeadline(time.Time{})
+
 	readyMsg := NewReadyMessage()
 	encryptedReady, err := crypto.EncryptChunk(EncodeMessage(readyMsg), r.key)
 	if err != nil {
@@ -42,7 +65,30 @@ func (r *Receiver) Connect() error {
 	return nil
 }
 
+func uniquePath(path string) string {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+	ext := filepath.Ext(path)
+	base := path[:len(path)-len(ext)]
+	for i := 1; ; i++ {
+		candidate := fmt.Sprintf("%s(%d)%s", base, i, ext)
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
+}
+
 func (r *Receiver) ReceiveFile(destDir string, progressFn func(received, total int64)) (string, error) {
+	// Validate destination directory exists and is a directory
+	info, err := os.Stat(destDir)
+	if err != nil {
+		return "", fmt.Errorf("destination directory %q does not exist: %w", destDir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("destination path %q is not a directory", destDir)
+	}
+
 	var metadata Metadata
 	var file *os.File
 	var bytesReceived int64
@@ -78,7 +124,7 @@ func (r *Receiver) ReceiveFile(destDir string, progressFn func(received, total i
 			if err != nil {
 				return "", fmt.Errorf("failed to parse metadata: %w", err)
 			}
-			destPath = filepath.Join(destDir, metadata.Filename)
+			destPath = uniquePath(filepath.Join(destDir, metadata.Filename))
 			file, err = os.Create(destPath)
 			if err != nil {
 				return "", fmt.Errorf("failed to create file: %w", err)

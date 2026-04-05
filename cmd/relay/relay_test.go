@@ -157,8 +157,8 @@ func TestFileStoreRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}
-	if len(token) != 6 {
-		t.Fatalf("expected 6 char token, got %d: %s", len(token), token)
+	if len(token) != 16 {
+		t.Fatalf("expected 16 char token, got %d: %s", len(token), token)
 	}
 
 	sf, ok := fs.Get(token)
