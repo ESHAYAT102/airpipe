@@ -1,13 +1,6 @@
 #!/bin/sh
 set -e
 
-# Check if the user is root
-if [ "$(id -u)" -eq 0 ]; then
-    SUDO=""
-else
-    SUDO="sudo"
-fi
-
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
@@ -23,7 +16,18 @@ echo "Downloading airpipe for ${OS}-${ARCH}..."
 curl -sL "$URL" -o /tmp/airpipe
 chmod +x /tmp/airpipe
 
-# Use the dynamic variable here
-$SUDO mv /tmp/airpipe /usr/local/bin/airpipe
+# Try /usr/local/bin first, fall back to ~/.local/bin
+if [ -w /usr/local/bin ]; then
+    mv /tmp/airpipe /usr/local/bin/airpipe
+    echo "Installed to /usr/local/bin/airpipe"
+else
+    mkdir -p "$HOME/.local/bin"
+    mv /tmp/airpipe "$HOME/.local/bin/airpipe"
+    echo "Installed to ~/.local/bin/airpipe"
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) echo "Add ~/.local/bin to your PATH: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+    esac
+fi
 
-echo "Installed! Run: airpipe send <file>"
+echo "Done! Run: airpipe send <file>"
