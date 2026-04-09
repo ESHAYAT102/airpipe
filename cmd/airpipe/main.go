@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -322,19 +323,46 @@ func cmdUpdate() error {
 		return fmt.Errorf("could not resolve path: %w", err)
 	}
 
-	// Write to temp file next to the binary, then atomic rename
-	tmpPath := execPath + ".tmp"
+	// Write to temp file in /tmp (always writable), then move to target
+	tmpPath := filepath.Join(os.TempDir(), "airpipe-update")
 	if err := os.WriteFile(tmpPath, binary, 0755); err != nil {
-		return fmt.Errorf("write failed (try with sudo?): %w", err)
+		return fmt.Errorf("write to temp failed: %w", err)
 	}
 
+	// Try direct rename first (works if same filesystem and we have permission)
 	if err := os.Rename(tmpPath, execPath); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("replace failed (try with sudo?): %w", err)
+		// Try copy instead (cross-filesystem)
+		if err := copyFile(tmpPath, execPath); err != nil {
+			// No permission, re-exec with sudo
+			os.Remove(tmpPath)
+			fmt.Printf("  Need sudo to update %s\n", execPath)
+			cmd := exec.Command("sudo", "cp", tmpPath, execPath)
+			// Re-write tmp since we removed it
+			os.WriteFile(tmpPath, binary, 0755)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				os.Remove(tmpPath)
+				return fmt.Errorf("sudo update failed: %w", err)
+			}
+			os.Remove(tmpPath)
+			fmt.Printf("  %s✓ Updated %s%s (%s)\n\n", colorGreen, execPath, colorReset, fmtBytes(int64(len(binary))))
+			return nil
+		}
 	}
+	os.Remove(tmpPath)
 
 	fmt.Printf("  %s✓ Updated %s%s (%s)\n\n", colorGreen, execPath, colorReset, fmtBytes(int64(len(binary))))
 	return nil
+}
+
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0755)
 }
 
 func uploadEncrypted(baseURL string, ciphertext []byte, clientToken string) (string, error) {

@@ -16,18 +16,14 @@ echo "Downloading airpipe for ${OS}-${ARCH}..."
 curl -sL "$URL" -o /tmp/airpipe
 chmod +x /tmp/airpipe
 
-# Try /usr/local/bin first, fall back to ~/.local/bin
+# Install to /usr/local/bin, use sudo if needed
 if [ -w /usr/local/bin ]; then
     mv /tmp/airpipe /usr/local/bin/airpipe
     echo "Installed to /usr/local/bin/airpipe"
 else
-    mkdir -p "$HOME/.local/bin"
-    mv /tmp/airpipe "$HOME/.local/bin/airpipe"
-    echo "Installed to ~/.local/bin/airpipe"
-    case ":$PATH:" in
-        *":$HOME/.local/bin:"*) ;;
-        *) echo "Add ~/.local/bin to your PATH: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
-    esac
+    echo "Need sudo to install to /usr/local/bin"
+    sudo mv /tmp/airpipe /usr/local/bin/airpipe
+    echo "Installed to /usr/local/bin/airpipe"
 fi
 
 echo "Done! Run: airpipe send <file>"
