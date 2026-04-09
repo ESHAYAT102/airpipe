@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/sanyamgarg/airpipe/internal/archive"
@@ -51,6 +52,7 @@ func main() {
 		fmt.Printf("Usage: %sairpipe%s send <file> [file2...]\n", colorBold, colorReset)
 		fmt.Printf("       %sairpipe%s receive [dir]\n", colorBold, colorReset)
 		fmt.Printf("       %sairpipe%s download <WORD WORD WORD NN> [dir]\n", colorBold, colorReset)
+		fmt.Printf("       %sairpipe%s update\n", colorBold, colorReset)
 		os.Exit(1)
 	}
 
@@ -74,6 +76,8 @@ func main() {
 			os.Exit(1)
 		}
 		err = cmdDownload(*relay, args[1:])
+	case "update":
+		err = cmdUpdate()
 	default:
 		fmt.Printf("Unknown command: %s\n", args[0])
 		os.Exit(1)
@@ -280,6 +284,56 @@ func cmdDownload(relay string, args []string) error {
 	}
 
 	fmt.Printf("\n  %s✓ Saved: %s%s\n\n", colorGreen, savePath, colorReset)
+	return nil
+}
+
+func cmdUpdate() error {
+	banner("update")
+
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+	url := fmt.Sprintf("https://github.com/Sanyam-G/Airpipe/releases/latest/download/airpipe-%s-%s", goos, goarch)
+
+	fmt.Printf("  Downloading latest for %s/%s...\n", goos, goarch)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
+	}
+
+	binary, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+
+	// Find current executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("could not find current binary: %w", err)
+	}
+	// Resolve symlinks
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return fmt.Errorf("could not resolve path: %w", err)
+	}
+
+	// Write to temp file next to the binary, then atomic rename
+	tmpPath := execPath + ".tmp"
+	if err := os.WriteFile(tmpPath, binary, 0755); err != nil {
+		return fmt.Errorf("write failed (try with sudo?): %w", err)
+	}
+
+	if err := os.Rename(tmpPath, execPath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("replace failed (try with sudo?): %w", err)
+	}
+
+	fmt.Printf("  %s✓ Updated %s%s (%s)\n\n", colorGreen, execPath, colorReset, fmtBytes(int64(len(binary))))
 	return nil
 }
 

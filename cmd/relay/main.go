@@ -394,6 +394,16 @@ func main() {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("GET /", handleLandingPage)
 	mux.HandleFunc("GET /send", handleSendPage)
+	mux.HandleFunc("GET /install.sh", func(w http.ResponseWriter, r *http.Request) {
+		staticFS, _ := fs.Sub(staticFiles, "static")
+		content, err := fs.ReadFile(staticFS, "install.sh")
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write(content)
+	})
 	mux.HandleFunc("POST /upload", handleUploadFile)
 	mux.HandleFunc("GET /d/{token}", handleDownloadPage)
 	mux.HandleFunc("GET /raw/{token}", handleRawDownload)
