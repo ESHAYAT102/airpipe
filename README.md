@@ -1,19 +1,19 @@
 # AirPipe
 
-Encrypted file transfer. No accounts. No apps.
+Encrypted file transfer. WebRTC peer-to-peer with relay fallback. No accounts. No apps.
 
 ```
 $ airpipe send config.yaml
 
   ╔══════════════════════════════════════════╗
-  ║  RIVER FALCON MARBLE 42                 ║
+  ║  RIVER FALCON MARBLE 42                  ║
   ╚══════════════════════════════════════════╝
 
   Tell them: airpipe.sanyamgarg.com
   They type the code, they get the file.
 ```
 
-**Try it now:** [airpipe.sanyamgarg.com/send](https://airpipe.sanyamgarg.com/send)
+**Try it:** [airpipe.sanyamgarg.com/send](https://airpipe.sanyamgarg.com/send)
 
 ## Install
 
@@ -33,14 +33,14 @@ airpipe update
 
 ## Usage
 
-**Send a file:**
+**Send a file (passphrase flow):**
 ```bash
 airpipe send photo.jpg
 ```
 Shows a passphrase and a QR code. The receiver either:
 - Types the passphrase at [airpipe.sanyamgarg.com](https://airpipe.sanyamgarg.com)
 - Scans the QR code
-- Runs `airpipe download` from their terminal
+- Runs `airpipe download RIVER FALCON MARBLE 42` from their terminal
 
 **Download with a passphrase:**
 ```bash
@@ -52,27 +52,23 @@ airpipe download RIVER FALCON MARBLE 42
 airpipe send file1.txt file2.txt photos/
 ```
 
-**Receive a file (phone to server):**
+**Receive a file from a browser (P2P):**
 ```bash
 airpipe receive ./downloads
 ```
-
-**Send from browser:**
-
-Go to [airpipe.sanyamgarg.com/send](https://airpipe.sanyamgarg.com/send), drop a file, share the passphrase.
+Prints a QR. Phone scans it, drops a file. The browser and your CLI negotiate WebRTC and the file flows directly between them, falling back to relay-streaming if NAT punching fails.
 
 ## How it works
 
-Everything is end-to-end encrypted. The relay is zero-knowledge.
+**Two transports, one passphrase-derived key:**
 
-1. CLI generates a passphrase (e.g. `RIVER FALCON MARBLE 42`)
-2. Token and encryption key are both derived from the passphrase using SHA-256 with domain separation
-3. File is encrypted locally with NaCl secretbox, uploaded to the relay as ciphertext
-4. Receiver enters the passphrase. Browser (or CLI) derives the same token and key, fetches ciphertext, decrypts locally
+- **Passphrase flow** (`airpipe send` / `airpipe download`): file is encrypted locally with NaCl secretbox and uploaded to the relay as ciphertext. The receiver derives the same key from the passphrase and decrypts locally. The relay only ever sees the ciphertext and a 16-char hex token — never the passphrase or the key.
 
-The relay only sees a hex token and encrypted bytes. It never sees the passphrase or the key.
+- **WebRTC P2P flow** (browser sender → CLI receiver via QR): both peers connect to the relay's WebSocket room. They exchange SDP offers/answers and ICE candidates through the room (encrypted with the passphrase-derived key, so the relay can't impersonate either side). When the WebRTC DataChannel opens, file bytes flow directly between the peers. If NAT punching fails after 15 seconds, both sides fall back to streaming through the relay's WebSocket — the relay sees ciphertext only in either case.
 
-Files expire after 10 minutes. QR code and direct URL still work as fallback for nearby devices.
+Two layers of encryption: DTLS (built into WebRTC) protects the wire; NaCl secretbox sits on top so even a malicious relay can't substitute peers in the SDP exchange.
+
+Files expire after 10 minutes.
 
 ## Self-host
 
@@ -81,7 +77,12 @@ docker run -p 8080:8080 ghcr.io/sanyam-g/airpipe-relay
 airpipe --relay https://your-server:8080 send file.txt
 ```
 
-One container. Includes the landing page, web send, download pages, and install script.
+Configurable via env vars:
+- `AIRPIPE_ALLOWED_ORIGINS` (comma-separated, or `*`) — CORS allowlist for browser clients
+- `AIRPIPE_RATE_LIMIT_PER_MIN` — per-IP token bucket (default 60)
+- `AIRPIPE_LOG_FORMAT` — `json` (default) or `text`
+
+`docker-compose.yml` includes an opt-in Watchtower sidecar that auto-pulls new images.
 
 ## License
 

@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -32,15 +33,13 @@ func (s *Sender) Connect() error {
 	}
 	s.conn = conn
 
-	versionMsg := NewVersionMessage()
-	encryptedVersion, err := crypto.EncryptChunk(EncodeMessage(versionMsg), s.key)
+	encryptedVersion, err := crypto.EncryptChunk(EncodeMessage(NewVersionMessage()), s.key)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt version message: %w", err)
 	}
 	if err := s.conn.WriteMessage(websocket.BinaryMessage, encryptedVersion); err != nil {
 		return fmt.Errorf("failed to send version message: %w", err)
 	}
-
 	return nil
 }
 
@@ -50,12 +49,12 @@ func (s *Sender) WaitForReceiver(timeout time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("timeout waiting for receiver: %w", err)
 	}
-	
+
 	decrypted, err := crypto.DecryptChunk(message, s.key)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt ready message: %w", err)
 	}
-	
+
 	msg, err := DecodeMessage(decrypted)
 	if err != nil {
 		return err
@@ -68,6 +67,31 @@ func (s *Sender) WaitForReceiver(timeout time.Duration) error {
 }
 
 func (s *Sender) SendFile(filePath string, progressFn func(sent, total int64)) error {
+	ctx := context.Background()
+
+	peer, err := negotiateSender(ctx, s.conn, s.key)
+	if err == nil {
+		fmt.Fprintln(os.Stderr, "transport: p2p")
+		if sigErr := writeSignalMsg(s.conn, s.key, NewP2PReadyMessage()); sigErr != nil {
+			peer.Close()
+			return fmt.Errorf("signal p2p ready: %w", sigErr)
+		}
+		streamErr := s.streamFile(peer.Send, filePath, progressFn)
+		// Drain before close so Complete isn't dropped.
+		peer.WaitDrain(10 * time.Second)
+		peer.Close()
+		return streamErr
+	}
+
+	fmt.Fprintf(os.Stderr, "transport: ws (p2p failed: %v)\n", err)
+	_ = writeSignalMsg(s.conn, s.key, NewP2PFailMessage(err.Error()))
+	wsSend := func(data []byte) error {
+		return s.conn.WriteMessage(websocket.BinaryMessage, data)
+	}
+	return s.streamFile(wsSend, filePath, progressFn)
+}
+
+func (s *Sender) streamFile(sendWire func([]byte) error, filePath string, progressFn func(sent, total int64)) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
@@ -87,55 +111,43 @@ func (s *Sender) SendFile(filePath string, progressFn func(sent, total int64)) e
 	if err != nil {
 		return err
 	}
-
-	encryptedMeta, err := crypto.EncryptChunk(EncodeMessage(metaMsg), s.key)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt metadata: %w", err)
-	}
-
-	if err := s.conn.WriteMessage(websocket.BinaryMessage, encryptedMeta); err != nil {
-		return fmt.Errorf("failed to send metadata: %w", err)
+	if err := s.writeEncrypted(sendWire, metaMsg); err != nil {
+		return fmt.Errorf("send metadata: %w", err)
 	}
 
 	buf := make([]byte, ChunkSize)
 	var bytesSent int64
-
 	for {
-		n, err := file.Read(buf)
-		if err == io.EOF {
+		n, readErr := file.Read(buf)
+		if n > 0 {
+			if err := s.writeEncrypted(sendWire, NewChunkMessage(buf[:n])); err != nil {
+				return fmt.Errorf("send chunk: %w", err)
+			}
+			bytesSent += int64(n)
+			if progressFn != nil {
+				progressFn(bytesSent, fileSize)
+			}
+		}
+		if readErr == io.EOF {
 			break
 		}
-		if err != nil {
-			return fmt.Errorf("failed to read file: %w", err)
-		}
-
-		chunkMsg := NewChunkMessage(buf[:n])
-		encryptedChunk, err := crypto.EncryptChunk(EncodeMessage(chunkMsg), s.key)
-		if err != nil {
-			return fmt.Errorf("failed to encrypt chunk: %w", err)
-		}
-
-		if err := s.conn.WriteMessage(websocket.BinaryMessage, encryptedChunk); err != nil {
-			return fmt.Errorf("failed to send chunk: %w", err)
-		}
-
-		bytesSent += int64(n)
-		if progressFn != nil {
-			progressFn(bytesSent, fileSize)
+		if readErr != nil {
+			return fmt.Errorf("read file: %w", readErr)
 		}
 	}
 
-	completeMsg := NewCompleteMessage()
-	encryptedComplete, err := crypto.EncryptChunk(EncodeMessage(completeMsg), s.key)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt complete message: %w", err)
+	if err := s.writeEncrypted(sendWire, NewCompleteMessage()); err != nil {
+		return fmt.Errorf("send complete: %w", err)
 	}
-
-	if err := s.conn.WriteMessage(websocket.BinaryMessage, encryptedComplete); err != nil {
-		return fmt.Errorf("failed to send complete message: %w", err)
-	}
-
 	return nil
+}
+
+func (s *Sender) writeEncrypted(sendWire func([]byte) error, msg Message) error {
+	enc, err := crypto.EncryptChunk(EncodeMessage(msg), s.key)
+	if err != nil {
+		return err
+	}
+	return sendWire(enc)
 }
 
 func (s *Sender) Close() error {

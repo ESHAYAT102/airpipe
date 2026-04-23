@@ -244,8 +244,8 @@ func simulateWebSender(relayURL, token string, key, fileContent []byte, filename
 		return crypto.EncryptChunk(data, key)
 	}
 
-	// 1. Send version message (0x20 with payload [1]) - THE FIX
-	versionData, err := encrypt(encode(0x20, []byte{1}))
+	// 1. Send version message (0x20 with payload [transfer.ProtocolVersion]).
+	versionData, err := encrypt(encode(0x20, []byte{transfer.ProtocolVersion}))
 	if err != nil {
 		return err
 	}
