@@ -3,220 +3,476 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIRPIPE</title>
+<title>AIRPIPE · encrypted P2P file transfer</title>
+<meta name="description" content="Encrypted peer-to-peer file transfer. WebRTC direct, relay fallback. No accounts. Open source.">
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:'JetBrains Mono',monospace;
-  background:#000;color:#fff;
-  min-height:100vh;min-height:100dvh;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  padding:24px;
-  background-image:radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px);
-  background-size:20px 20px;
-}
-a{color:#00d4ff;text-decoration:none}
-a:hover{text-decoration:underline}
-
-.page{max-width:640px;width:100%;display:flex;flex-direction:column;align-items:center;gap:32px}
-
-.hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
-.hero h1{font-size:3rem;font-weight:700;letter-spacing:8px;text-transform:uppercase}
-.hero h1 span{color:#00d4ff}
-.tagline{font-size:0.8rem;color:#888;text-transform:uppercase;letter-spacing:2px}
-
-.features{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
-  width:100%;background:#333;border:1px dotted #333;
-}
-.feat{background:#000;padding:20px 16px;text-align:center;display:flex;flex-direction:column;gap:8px}
-.feat-label{font-size:0.65rem;color:#00d4ff;text-transform:uppercase;letter-spacing:2px;font-weight:500}
-.feat-desc{font-size:0.7rem;color:#666;line-height:1.5}
-
-.cta{
-  display:inline-block;
-  border:1px dotted #00d4ff;
-  color:#00d4ff;
-  padding:14px 32px;
-  font-family:'JetBrains Mono',monospace;
-  font-size:0.85rem;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:3px;
-  text-decoration:none;
-  transition:background 0.15s,color 0.15s;
-}
-.cta:hover{background:#00d4ff;color:#000;text-decoration:none}
-
-.install{width:100%;display:flex;flex-direction:column;gap:8px}
-.install-label{font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:2px}
-.code-block{
-  background:#0a0a0a;border:1px dotted #222;
-  padding:12px 16px;font-size:0.75rem;color:#ccc;
-  cursor:pointer;position:relative;
-  word-break:break-all;white-space:pre-wrap;
-  transition:border-color 0.15s;
-}
-.code-block:hover{border-color:#00d4ff}
-.code-block .copied{
-  position:absolute;top:50%;right:12px;transform:translateY(-50%);
-  font-size:0.6rem;color:#00d4ff;text-transform:uppercase;letter-spacing:1px;
-  opacity:0;transition:opacity 0.2s;
-}
-.code-block .copied.show{opacity:1}
-
-.links{display:flex;gap:24px;font-size:0.75rem}
-.links a{
-  display:inline-flex;align-items:center;gap:8px;
-  color:#aaa;transition:color 0.15s;
-  border:1px dotted #333;padding:10px 18px;
-}
-.links a:hover{color:#00d4ff;border-color:#00d4ff;text-decoration:none}
-.links svg{width:16px;height:16px;fill:currentColor}
-
-.footer{font-size:0.6rem;color:#333;text-transform:uppercase;letter-spacing:1px}
-.footer a{color:#444}
-.footer a:hover{color:#00d4ff}
-
-.passphrase-section{width:100%;display:flex;flex-direction:column;gap:8px;align-items:center}
-.section-label{font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:2px}
-.passphrase-row{width:100%;display:flex;gap:8px}
-.phrase-input{
-  flex:1;
-  background:#0a0a0a;border:1px dotted #333;
-  padding:14px 16px;
-  font-family:'JetBrains Mono',monospace;
-  font-size:0.85rem;color:#fff;
-  text-transform:uppercase;letter-spacing:2px;
-  outline:none;transition:border-color 0.15s;
-}
-.phrase-input:focus{border-color:#00d4ff}
-.phrase-input::placeholder{color:#333;text-transform:uppercase}
-.phrase-btn{padding:14px 20px;white-space:nowrap;cursor:pointer;background:transparent}
-.phrase-error{font-size:0.65rem;color:#ff4444;min-height:1em}
-.divider{font-size:0.6rem;color:#333;text-transform:uppercase;letter-spacing:2px}
-
-@media(max-width:540px){
-  .hero h1{font-size:2rem;letter-spacing:4px}
-  .features{grid-template-columns:1fr}
-  .page{gap:24px}
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css?v=20260424a">
 </head>
-<body>
-<div class="page">
+<body class="landing-body">
 
-  <div class="hero">
-    <h1>AIR<span>PIPE</span></h1>
-    <div class="tagline">encrypted file transfer. no accounts. no apps.</div>
+<header class="top-strip">
+  <div class="strip-cell brand"><a href="/">AIRPIPE</a></div>
+  <div class="strip-cell mono-tiny">v4.0 · MIT</div>
+  <div class="strip-cell spacer"></div>
+  <div class="strip-cell status live"><span class="dot"></span>RELAY ONLINE</div>
+  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">GITHUB <span class="arrow">↗</span></a>
+</header>
+
+<section class="hero-section">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <p class="hero-eyebrow">FILE TRANSFER · v4</p>
+      <h1 class="hero-title">AIR<span>PIPE</span></h1>
+      <p class="hero-tag">Encrypted file transfer between any two devices. <strong>WebRTC peer-to-peer</strong> with relay fallback. Open source, MIT.</p>
+      <div class="hero-actions">
+        <a href="/send" class="cta cta-primary">SEND A FILE <span class="arrow">→</span></a>
+        <a href="#how" class="cta">HOW IT WORKS</a>
+      </div>
+      <div class="hero-phrase">
+        <span class="phrase-leading">PASSPHRASE</span>
+        <input type="text" id="phrase-input" class="phrase-input" placeholder="RIVER FALCON MARBLE 42" autocomplete="off" spellcheck="false">
+        <button class="phrase-go" onclick="submitPhrase()">↵</button>
+      </div>
+      <div id="phrase-error" class="phrase-error"></div>
+    </div>
+
+    <div class="hero-anim">
+      <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-label="Two devices handshake through the relay then transfer a file directly peer to peer">
+        <defs>
+          <!-- Motion paths -->
+          <path id="p-sr"      d="M 180 175 L 348 96"/>
+          <path id="p-rs"      d="M 348 96 L 180 175"/>
+          <path id="p-rr"      d="M 452 96 L 620 175"/>
+          <path id="p-rrev"    d="M 620 175 L 452 96"/>
+          <path id="p-direct"  d="M 180 270 L 620 270"/>
+
+          <!-- Soft red halo for premium-feel chunk packets -->
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.4" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+
+          <!-- Grid pattern backdrop -->
+          <pattern id="anim-grid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0d0d0c" stroke-width="0.3" opacity="0.06"/>
+          </pattern>
+        </defs>
+
+        <!-- subtle grid backdrop -->
+        <rect x="0" y="0" width="800" height="320" fill="url(#anim-grid)"/>
+
+        <!-- signaling lines (dotted, with /ws/ label) -->
+        <line class="signaling-line" x1="180" y1="175" x2="348" y2="96"/>
+        <line class="signaling-line" x1="452" y1="96"  x2="620" y2="175"/>
+        <text x="245" y="125" class="line-label" transform="rotate(-26 245 125)">/ws/{token}</text>
+        <text x="555" y="125" class="line-label" transform="rotate(26 555 125)">/ws/{token}</text>
+
+        <!-- direct line (with connection-established flash + label) -->
+        <line class="direct-line" x1="180" y1="270" x2="620" y2="270">
+          <animate attributeName="stroke-width" dur="10s" repeatCount="indefinite" calcMode="spline"
+            values="1.4;1.4;3.6;2.2;2.2;1.4"
+            keyTimes="0;0.45;0.50;0.56;0.95;1"
+            keySplines="0.4 0 0.2 1; 0.2 0 0.6 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1"/>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0.18;0.18;1;1;1;0.18"
+            keyTimes="0;0.45;0.50;0.55;0.95;1"/>
+        </line>
+        <text x="400" y="290" text-anchor="middle" class="line-label">WebRTC DataChannel · DTLS-encrypted</text>
+
+        <!-- relay -->
+        <g class="node relay-node">
+          <rect x="340" y="30" width="120" height="68">
+            <!-- arrival pulse: stroke flashes red briefly when each signaling packet arrives -->
+            <animate attributeName="stroke" dur="10s" repeatCount="indefinite" calcMode="discrete"
+              values="#0d0d0c;#e5231b;#0d0d0c;#e5231b;#0d0d0c;#e5231b;#0d0d0c;#e5231b;#0d0d0c"
+              keyTimes="0;0.13;0.15;0.21;0.23;0.34;0.36;0.42;0.44"/>
+          </rect>
+          <rect x="350" y="38" width="100" height="10" fill="none" stroke="#0d0d0c" stroke-width="0.8"/>
+          <rect x="350" y="50" width="100" height="10" fill="none" stroke="#0d0d0c" stroke-width="0.8"/>
+          <rect x="350" y="62" width="100" height="10" fill="none" stroke="#0d0d0c" stroke-width="0.8"/>
+          <circle cx="356" cy="43" r="1.4" fill="#e5231b"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/></circle>
+          <circle cx="356" cy="55" r="1.4" fill="#e5231b"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" begin="0.4s" repeatCount="indefinite"/></circle>
+          <circle cx="356" cy="67" r="1.4" fill="#e5231b"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" begin="0.8s" repeatCount="indefinite"/></circle>
+          <text x="400" y="90" text-anchor="middle" class="node-label">RELAY</text>
+        </g>
+
+        <!-- sender -->
+        <g class="node sender-node">
+          <rect x="40" y="156" width="140" height="96"/>
+
+          <!-- Browser variant: 0–50% with smooth cross-fade -->
+          <g class="icon-browser">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="1;1;0;0;1" keyTimes="0;0.46;0.54;0.96;1"/>
+            <rect x="76" y="166" width="68" height="42" fill="none" stroke="#0d0d0c" stroke-width="1.4"/>
+            <line x1="76" y1="176" x2="144" y2="176" stroke="#0d0d0c" stroke-width="1"/>
+            <circle cx="81" cy="171" r="1.5" fill="#0d0d0c"/>
+            <circle cx="87" cy="171" r="1.5" fill="#0d0d0c"/>
+            <circle cx="93" cy="171" r="1.5" fill="#0d0d0c"/>
+            <line x1="82" y1="184" x2="138" y2="184" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="82" y1="190" x2="120" y2="190" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="82" y1="196" x2="130" y2="196" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="82" y1="202" x2="110" y2="202" stroke="#b3b3ae" stroke-width="1"/>
+          </g>
+
+          <!-- CLI variant: 50–100% with smooth cross-fade -->
+          <g class="icon-cli" opacity="0">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.46;0.54;0.96;1"/>
+            <rect x="76" y="166" width="68" height="42" fill="none" stroke="#0d0d0c" stroke-width="1.4"/>
+            <line x1="76" y1="174" x2="144" y2="174" stroke="#0d0d0c" stroke-width="1"/>
+            <circle cx="81" cy="170" r="1.4" fill="#0d0d0c"/>
+            <circle cx="87" cy="170" r="1.4" fill="#0d0d0c"/>
+            <circle cx="93" cy="170" r="1.4" fill="#0d0d0c"/>
+            <text x="80" y="190" font-family="IBM Plex Mono, monospace" font-size="8" fill="#0d0d0c" font-weight="600">$ airpipe</text>
+            <text x="80" y="200" font-family="IBM Plex Mono, monospace" font-size="8" fill="#0d0d0c">  send file</text>
+            <rect x="118" y="194" width="6" height="7" fill="#e5231b">
+              <animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite"/>
+            </rect>
+          </g>
+
+          <text x="110" y="226" text-anchor="middle" class="node-label">SENDER</text>
+          <text x="110" y="244" text-anchor="middle" class="node-sub">
+            BROWSER<animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="1;1;0;0;1" keyTimes="0;0.46;0.54;0.96;1"/>
+          </text>
+          <text x="110" y="244" text-anchor="middle" class="node-sub" opacity="0">
+            CLI<animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.46;0.54;0.96;1"/>
+          </text>
+        </g>
+
+        <!-- receiver -->
+        <g class="node receiver-node">
+          <rect x="620" y="156" width="140" height="96"/>
+
+          <!-- Browser variant: 0–25% & 75–100% with cross-fade -->
+          <g class="icon-browser">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="1;1;0;0;1;1" keyTimes="0;0.21;0.29;0.71;0.79;1"/>
+            <rect x="656" y="166" width="68" height="42" fill="none" stroke="#0d0d0c" stroke-width="1.4"/>
+            <line x1="656" y1="176" x2="724" y2="176" stroke="#0d0d0c" stroke-width="1"/>
+            <circle cx="661" cy="171" r="1.5" fill="#0d0d0c"/>
+            <circle cx="667" cy="171" r="1.5" fill="#0d0d0c"/>
+            <circle cx="673" cy="171" r="1.5" fill="#0d0d0c"/>
+            <line x1="662" y1="184" x2="718" y2="184" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="662" y1="190" x2="700" y2="190" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="662" y1="196" x2="710" y2="196" stroke="#b3b3ae" stroke-width="1"/>
+            <line x1="662" y1="202" x2="690" y2="202" stroke="#b3b3ae" stroke-width="1"/>
+          </g>
+
+          <!-- CLI variant: 25–75% with cross-fade -->
+          <g class="icon-cli" opacity="0">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.21;0.29;0.71;0.79;1"/>
+            <rect x="656" y="166" width="68" height="42" fill="none" stroke="#0d0d0c" stroke-width="1.4"/>
+            <line x1="656" y1="174" x2="724" y2="174" stroke="#0d0d0c" stroke-width="1"/>
+            <circle cx="661" cy="170" r="1.4" fill="#0d0d0c"/>
+            <circle cx="667" cy="170" r="1.4" fill="#0d0d0c"/>
+            <circle cx="673" cy="170" r="1.4" fill="#0d0d0c"/>
+            <text x="660" y="190" font-family="IBM Plex Mono, monospace" font-size="8" fill="#0d0d0c" font-weight="600">$ airpipe</text>
+            <text x="660" y="200" font-family="IBM Plex Mono, monospace" font-size="8" fill="#0d0d0c">  receive .</text>
+            <rect x="710" y="194" width="6" height="7" fill="#e5231b">
+              <animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite"/>
+            </rect>
+          </g>
+
+          <text x="690" y="226" text-anchor="middle" class="node-label">RECEIVER</text>
+          <text x="690" y="244" text-anchor="middle" class="node-sub">
+            BROWSER<animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="1;1;0;0;1;1" keyTimes="0;0.21;0.29;0.71;0.79;1"/>
+          </text>
+          <text x="690" y="244" text-anchor="middle" class="node-sub" opacity="0">
+            CLI<animate attributeName="opacity" dur="10s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.21;0.29;0.71;0.79;1"/>
+          </text>
+        </g>
+
+        <!-- packets: 10s cycle (SDP offer/answer, ICE, direct chunks) -->
+
+        <!-- compound paths used by labeled pills with relay dwell -->
+        <path id="p-srr" d="M 180 175 L 400 64 L 620 175" fill="none" opacity="0"/>
+        <path id="p-rrs" d="M 620 175 L 400 64 L 180 175" fill="none" opacity="0"/>
+
+        <!-- SDP offer pill -->
+        <g opacity="0">
+          <rect x="-26" y="-10" width="52" height="20" rx="2" fill="#e5231b"/>
+          <text x="0" y="4" text-anchor="middle" fill="#fafaf7" font-family="IBM Plex Mono, monospace" font-size="9" font-weight="700" letter-spacing="1">SDP →</text>
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;0.5;0.5;1;1"
+            keyTimes="0;0.05;0.12;0.14;0.21;1"
+            keySplines="0 0 1 1; 0.3 0 0.2 1; 0 0 1 1; 0.7 0 0.5 1; 0 0 1 1">
+            <mpath href="#p-srr"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0"
+            keyTimes="0;0.04;0.05;0.21;0.22;1"/>
+        </g>
+
+        <!-- SDP answer pill -->
+        <g opacity="0">
+          <rect x="-26" y="-10" width="52" height="20" rx="2" fill="#e5231b"/>
+          <text x="0" y="4" text-anchor="middle" fill="#fafaf7" font-family="IBM Plex Mono, monospace" font-size="9" font-weight="700" letter-spacing="1">← ACK</text>
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;0.5;0.5;1;1"
+            keyTimes="0;0.23;0.30;0.32;0.39;1"
+            keySplines="0 0 1 1; 0.3 0 0.2 1; 0 0 1 1; 0.7 0 0.5 1; 0 0 1 1">
+            <mpath href="#p-rrs"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0"
+            keyTimes="0;0.22;0.23;0.39;0.40;1"/>
+        </g>
+
+        <!-- ICE candidates -->
+        <circle r="3.5" fill="#e5231b" opacity="0">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.41;0.45;1" keySplines="0 0 1 1; 0.4 0 0.4 1; 0 0 1 1">
+            <mpath href="#p-srr"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.40;0.41;0.45;0.46;1"/>
+        </circle>
+        <circle r="3.5" fill="#e5231b" opacity="0">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.43;0.47;1" keySplines="0 0 1 1; 0.4 0 0.4 1; 0 0 1 1">
+            <mpath href="#p-rrs"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.42;0.43;0.47;0.48;1"/>
+        </circle>
+        <circle r="3.5" fill="#e5231b" opacity="0">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.45;0.49;1" keySplines="0 0 1 1; 0.4 0 0.4 1; 0 0 1 1">
+            <mpath href="#p-srr"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.44;0.45;0.49;0.50;1"/>
+        </circle>
+
+        <!-- direct chunks -->
+        <circle r="6" fill="#e5231b" opacity="0" filter="url(#glow)">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.55;0.66;1" keySplines="0 0 1 1; 0.45 0 0.55 1; 0 0 1 1">
+            <mpath href="#p-direct"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.54;0.55;0.66;0.67;1"/>
+        </circle>
+        <circle r="6" fill="#e5231b" opacity="0" filter="url(#glow)">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.61;0.72;1" keySplines="0 0 1 1; 0.45 0 0.55 1; 0 0 1 1">
+            <mpath href="#p-direct"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.60;0.61;0.72;0.73;1"/>
+        </circle>
+        <circle r="6" fill="#e5231b" opacity="0" filter="url(#glow)">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.67;0.78;1" keySplines="0 0 1 1; 0.45 0 0.55 1; 0 0 1 1">
+            <mpath href="#p-direct"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.66;0.67;0.78;0.79;1"/>
+        </circle>
+        <circle r="6" fill="#e5231b" opacity="0" filter="url(#glow)">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.73;0.84;1" keySplines="0 0 1 1; 0.45 0 0.55 1; 0 0 1 1">
+            <mpath href="#p-direct"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.72;0.73;0.84;0.85;1"/>
+        </circle>
+        <circle r="6" fill="#e5231b" opacity="0" filter="url(#glow)">
+          <animateMotion dur="10s" repeatCount="indefinite" calcMode="spline"
+            keyPoints="0;0;1;1" keyTimes="0;0.79;0.90;1" keySplines="0 0 1 1; 0.45 0 0.55 1; 0 0 1 1">
+            <mpath href="#p-direct"/>
+          </animateMotion>
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0;0" keyTimes="0;0.78;0.79;0.90;0.91;1"/>
+        </circle>
+
+        <!-- Phase label cross-fade (1: signaling, 2: direct) -->
+        <text class="phase-label" x="400" y="138" text-anchor="middle" opacity="1">
+          01 · SIGNALING (SDP + ICE)
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="1;1;0;0;1" keyTimes="0;0.46;0.54;0.96;1"/>
+        </text>
+        <text class="phase-label" x="400" y="138" text-anchor="middle" opacity="0">
+          02 · DIRECT (WEBRTC DATACHANNEL)
+          <animate attributeName="opacity" dur="10s" repeatCount="indefinite"
+            values="0;0;1;1;0" keyTimes="0;0.46;0.54;0.96;1"/>
+        </text>
+
+        <!-- Cycle progress bar at the bottom of the SVG -->
+        <rect x="0" y="316" width="800" height="3" fill="#0d0d0c" opacity="0.06"/>
+        <rect x="0" y="316" width="0" height="3" fill="#e5231b">
+          <animate attributeName="width" dur="10s" repeatCount="indefinite"
+            values="0;800;0" keyTimes="0;0.99;1"/>
+        </rect>
+      </svg>
+    </div>
   </div>
+</section>
 
-  <div class="features">
-    <div class="feat">
-      <div class="feat-label">E2E encrypted</div>
-      <div class="feat-desc">Relay never sees your data. NaCl secretbox.</div>
+<section class="explain-section" id="how">
+  <div class="section-frame">
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2 class="section-title">HOW IT WORKS</h2>
+      <span class="section-rule"></span>
     </div>
-    <div class="feat">
-      <div class="feat-label">Zero knowledge</div>
-      <div class="feat-desc">Key stays in URL fragment. Never hits the server.</div>
-    </div>
-    <div class="feat">
-      <div class="feat-label">Self-hostable</div>
-      <div class="feat-desc">Single Docker container. Your infra, your rules.</div>
-    </div>
-  </div>
 
-  <div class="passphrase-section">
-    <div class="section-label">have a code?</div>
-    <div class="passphrase-row">
-      <input type="text" id="phrase-input" class="phrase-input" placeholder="e.g. RIVER FALCON MARBLE 42" autocomplete="off" spellcheck="false">
-      <button id="phrase-btn" class="cta phrase-btn" onclick="submitPhrase()">[ download ]</button>
+    <div class="explain-grid">
+      <article class="explain-col">
+        <div class="explain-num">01</div>
+        <h3 class="explain-h">Encrypt locally</h3>
+        <p>Your file is encrypted in the browser or CLI before any byte leaves your machine. <strong>NaCl secretbox</strong>, 256-bit key derived from a passphrase via SHA-256 with domain separation. The key never crosses the network.</p>
+      </article>
+
+      <article class="explain-col">
+        <div class="explain-num">02</div>
+        <h3 class="explain-h">Pair through the relay</h3>
+        <p>Both devices connect to the relay's WebSocket room and exchange WebRTC <strong>SDP offer/answer</strong> + ICE candidates. The relay is zero-knowledge. It sees ciphertext signaling messages and nothing else.</p>
+      </article>
+
+      <article class="explain-col">
+        <div class="explain-num">03</div>
+        <h3 class="explain-h">Transfer direct</h3>
+        <p>When the WebRTC <strong>DataChannel</strong> opens, file bytes flow straight between the two devices, bypassing the relay. If NAT punching fails, both sides fall back to streaming through the relay (still ciphertext).</p>
+      </article>
     </div>
-    <div id="phrase-error" class="phrase-error"></div>
-  </div>
 
-  <div class="divider">or</div>
-
-  <a href="/send" class="cta">[ send a file ]</a>
-
-  <div class="install">
-    <div class="install-label">install</div>
-    <div class="code-block" onclick="copyCode(this)">
-curl -sSL https://airpipe.sanyamgarg.com/install.sh | sh<span class="copied">copied</span>
-    </div>
-    <div class="code-block" onclick="copyCode(this)">
-go install github.com/Sanyam-G/Airpipe/cmd/airpipe@latest<span class="copied">copied</span>
+    <div class="explain-emphasis">
+      <span class="emp-label">RELAY SEES</span>
+      <span class="emp-val"><span class="dim">→</span> a 16-char hex token <span class="sep">·</span> ciphertext blobs <span class="sep">·</span> nothing else</span>
     </div>
   </div>
+</section>
 
-  <div class="links">
-    <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-      github.com/Sanyam-G/Airpipe
-    </a>
+<section class="commands-section">
+  <div class="section-frame">
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <h2 class="section-title">USE IT</h2>
+      <span class="section-rule"></span>
+    </div>
+
+    <div class="cmd-grid">
+      <div class="cmd-block">
+        <div class="cmd-title">INSTALL CLI</div>
+        <div class="code-line" onclick="copyCode(this)">
+          <code>curl -sSL https://airpipe.sanyamgarg.com/install.sh | sh</code>
+          <span class="copy-tag">cp</span>
+        </div>
+        <div class="code-line" onclick="copyCode(this)">
+          <code>go install github.com/Sanyam-G/Airpipe/cmd/airpipe@latest</code>
+          <span class="copy-tag">cp</span>
+        </div>
+        <p class="cmd-note">Linux + macOS · amd64 + arm64. Update with <code>airpipe update</code>.</p>
+      </div>
+
+      <div class="cmd-block">
+        <div class="cmd-title">SEND A FILE</div>
+        <div class="code-line"><code>$ airpipe send report.pdf</code></div>
+        <pre class="code-output">  <span class="rd">RIVER FALCON MARBLE 42</span>
+  Tell them: airpipe.sanyamgarg.com
+  They type the code, they get the file.</pre>
+      </div>
+
+      <div class="cmd-block">
+        <div class="cmd-title">DOWNLOAD</div>
+        <div class="code-line"><code>$ airpipe download RIVER FALCON MARBLE 42</code></div>
+        <p class="cmd-note">Or paste the passphrase on the homepage. Or scan the QR.</p>
+      </div>
+
+      <div class="cmd-block">
+        <div class="cmd-title">RECEIVE FROM BROWSER (P2P)</div>
+        <div class="code-line"><code>$ airpipe receive ./downloads</code></div>
+        <p class="cmd-note">Prints a QR. Phone scans it, drops a file. WebRTC direct, falling back to relay if NAT punching fails.</p>
+      </div>
+    </div>
   </div>
+</section>
 
-  <div class="footer">built by <a href="https://sanyamgarg.com" target="_blank">sanyam garg</a></div>
+<section class="host-section">
+  <div class="section-frame">
+    <div class="section-head">
+      <span class="section-num">04</span>
+      <h2 class="section-title">SELF-HOST</h2>
+      <span class="section-rule"></span>
+    </div>
 
-</div>
+    <div class="host-grid">
+      <div>
+        <p class="host-lead">One container. Bundles the landing, browser sender, download pages, and install script. Auto-updates via Watchtower if you want.</p>
+        <div class="code-line" onclick="copyCode(this)">
+          <code>docker run -p 8080:8080 ghcr.io/sanyam-g/airpipe-relay</code>
+          <span class="copy-tag">cp</span>
+        </div>
+      </div>
+      <dl class="host-env">
+        <dt>AIRPIPE_ALLOWED_ORIGINS</dt><dd>CORS allowlist · CSV or `*`</dd>
+        <dt>AIRPIPE_RATE_LIMIT_PER_MIN</dt><dd>Per-IP token bucket · default 60</dd>
+        <dt>AIRPIPE_LOG_FORMAT</dt><dd>json · text</dd>
+        <dt>PORT</dt><dd>default 8080</dd>
+      </dl>
+    </div>
+
+    <div class="stack-row">
+      <span class="stack-label">STACK</span>
+      <div class="stack-tags">
+        <span>GO 1.25</span>
+        <span>PION/WEBRTC</span>
+        <span>GORILLA/WEBSOCKET</span>
+        <span>NACL_SECRETBOX</span>
+        <span>TWEETNACL.JS</span>
+        <span>DTLS · SCTP</span>
+        <span>CLOUDFLARE TUNNEL</span>
+        <span>DOCKER</span>
+        <span>WATCHTOWER</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="bottom-strip">
+  <span class="strip-cell">AIRPIPE v4.0</span>
+  <span class="strip-cell">·</span>
+  <span class="strip-cell"><a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener">SOURCE</a></span>
+  <span class="strip-cell">·</span>
+  <span class="strip-cell">MIT</span>
+  <span class="spacer"></span>
+  <span class="strip-cell">BUILT BY <a href="https://sanyamgarg.com" target="_blank" rel="noopener">SANYAM GARG</a></span>
+</footer>
 
 <script>
-function copyCode(el){
-  const text=el.textContent.replace('copied','').trim();
-  navigator.clipboard.writeText(text);
-  const badge=el.querySelector('.copied');
-  badge.classList.add('show');
-  setTimeout(()=>badge.classList.remove('show'),1500);
-}
-
-function normalize(phrase){
-  return phrase.toUpperCase().trim().replace(/\s+/g,' ');
-}
-
-async function sha256(str){
-  const data=new TextEncoder().encode(str);
+function $(id){return document.getElementById(id)}
+function normalize(p){return p.toUpperCase().trim().replace(/\s+/g,' ')}
+async function sha256(s){
+  const data=new TextEncoder().encode(s);
   const hash=await crypto.subtle.digest('SHA-256',data);
   return new Uint8Array(hash);
 }
-
-function hexEncode(bytes){
-  return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
+function hexEncode(bytes){return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('')}
 function b64urlEncode(bytes){
-  let binary='';
-  for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
-
 async function submitPhrase(){
-  const input=document.getElementById('phrase-input').value;
-  const errEl=document.getElementById('phrase-error');
-  errEl.textContent='';
-
-  const phrase=normalize(input);
-  if(!phrase||phrase.length<5){
-    errEl.textContent='enter the passphrase from the sender';
-    return;
-  }
-
-  const tokenHash=await sha256('airpipe:token:'+phrase);
-  const token=hexEncode(tokenHash.slice(0,8));
-
-  const keyHash=await sha256('airpipe:key:'+phrase);
-  const keyB64=b64urlEncode(keyHash);
-
-  window.location.href='/d/'+token+'#'+keyB64;
+  const errEl=$('phrase-error');errEl.textContent='';
+  const phrase=normalize($('phrase-input').value);
+  if(!phrase||phrase.length<5){errEl.textContent='enter the passphrase';return}
+  const t=await sha256('airpipe:token:'+phrase);
+  const k=await sha256('airpipe:key:'+phrase);
+  location.href='/d/'+hexEncode(t.slice(0,8))+'#'+b64urlEncode(k);
 }
+$('phrase-input').addEventListener('keydown',(e)=>{if(e.key==='Enter')submitPhrase()});
 
-document.getElementById('phrase-input').addEventListener('keydown',(e)=>{
-  if(e.key==='Enter')submitPhrase();
-});
+function copyCode(el){
+  const text=el.querySelector('code').textContent.trim();
+  navigator.clipboard.writeText(text);
+  const tag=el.querySelector('.copy-tag');
+  if(tag){const orig=tag.textContent;tag.textContent='ok';setTimeout(()=>tag.textContent=orig,1100)}
+}
 </script>
 </body>
 </html>
