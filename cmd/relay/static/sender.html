@@ -3,51 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIRPIPE / UPLOAD</title>
+<title>Send to CLI · AirPipe</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260510a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=20260510a">
+<link rel="stylesheet" href="/static/style.css?v=20260510b">
 </head>
 <body>
 
 <header class="top-strip">
-  <div class="strip-cell brand"><a href="/" style="color:inherit;text-decoration:none">AIRPIPE</a></div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">FLOW</span>
-    <span class="mono-big">UPLOAD</span>
-  </div>
-  <div class="strip-cell tagline">
-    <span>BROWSER → CLI · WEBRTC P2P · RELAY FALLBACK</span>
-  </div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">RELAY_TIME</span>
-    <span class="mono-big" id="top-clock">--:--:--</span>
-  </div>
+  <div class="strip-cell brand"><a href="/">AIRPIPE</a></div>
+  <div class="strip-cell spacer"></div>
   <div class="strip-cell status" id="ws-status"><span class="dot"></span>CONNECTING</div>
-  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">
-    <span>SOURCE</span><span class="arrow">→</span>
-  </a>
+  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">GITHUB <span class="arrow">↗</span></a>
 </header>
 
 <main class="grid single">
 
-  <section id="connecting" class="block" data-label="01">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">connecting</span>
-    </div>
-    <p class="block-sub">Establishing encrypted WebSocket to the relay. Once paired with the receiver, we'll attempt a direct WebRTC DataChannel.</p>
+  <section id="connecting" class="block">
+    <h2>Connecting</h2>
+    <p class="block-sub">Opening an encrypted link to the relay. Once paired with the CLI receiver, we attempt a direct WebRTC connection.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="select" class="block hidden" data-label="01">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">ready</span>
-    </div>
-    <p class="block-sub">File is encrypted in your browser before any bytes leave. The relay only ever sees ciphertext.</p>
+  <section id="select" class="block hidden">
+    <h2>Drop a file</h2>
+    <p class="block-sub">It encrypts in your browser before any bytes leave. The relay only ever sees ciphertext.</p>
     <div class="drop-zone" id="dropzone">
       <div class="drop-icon">+</div>
       <div class="drop-label">tap to select or <strong>drop a file</strong></div>
@@ -56,30 +38,21 @@
     <input type="file" id="fileinput">
   </section>
 
-  <section id="preparing" class="block hidden" data-label="02">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">handshaking</span>
-    </div>
+  <section id="preparing" class="block hidden">
+    <h2>Handshaking</h2>
     <div class="filename" id="prep-name">-</div>
-    <p class="block-sub">Waiting for receiver Ready, then negotiating WebRTC offer/answer.</p>
+    <p class="block-sub">Waiting for the receiver to be ready, then negotiating the WebRTC offer.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="negotiating" class="block hidden" data-label="03">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">negotiating peer</span>
-    </div>
-    <p class="block-sub">Trickling ICE candidates · attempting direct WebRTC. Falls back to relay-streaming after 15s if NAT punching fails.</p>
+  <section id="negotiating" class="block hidden">
+    <h2>Connecting peer</h2>
+    <p class="block-sub">Attempting direct WebRTC. Falls back to streaming through the relay if NAT punching fails after 15 seconds.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="sending" class="block hidden" data-label="04">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">uploading</span>
-    </div>
+  <section id="sending" class="block hidden">
+    <h2>Sending</h2>
     <div class="transport" id="transport"></div>
     <div class="filename" id="filename">-</div>
     <div class="size-info" id="send-size"></div>
@@ -90,25 +63,25 @@
     <div class="speed-info" id="speed"></div>
   </section>
 
-  <section id="complete" class="block hidden" data-label="OK">
+  <section id="complete" class="block hidden">
     <div class="checkmark">✓</div>
-    <h2 style="color:var(--accent)">TRANSFER COMPLETE</h2>
+    <h2 style="color:var(--accent)">Transfer complete</h2>
     <div class="transport" id="done-transport"></div>
     <div class="filename" id="done-name">-</div>
     <div class="size-info" id="done-size"></div>
   </section>
 
-  <section id="error" class="block hidden" data-label="!!">
-    <h2 style="color:var(--accent)">ERROR</h2>
+  <section id="error" class="block hidden">
+    <h2 style="color:var(--accent)">Error</h2>
     <div class="filename" id="errmsg">-</div>
   </section>
 
 </main>
 
 <footer class="bottom-strip">
-  <div class="strip-cell">END_TO_END · NACL_SECRETBOX + DTLS</div>
-  <div class="strip-cell">RELAY_NEVER_SEES_PLAINTEXT</div>
-  <div class="strip-cell"><a href="/">RETURN_HOME →</a></div>
+  <span class="strip-cell">End-to-end encrypted</span>
+  <span class="spacer"></span>
+  <span class="strip-cell"><a href="/">Home</a></span>
 </footer>
 
 <script src="/static/nacl-fast.min.js"></script>
@@ -202,12 +175,12 @@ ws.onopen=()=>{
   show('select');
   const s=$('ws-status');
   s.classList.remove('err');s.classList.add('live');
-  s.innerHTML='<span class="dot"></span>RELAY_LINKED';
+  s.innerHTML='<span class="dot"></span>RELAY ONLINE';
 };
 ws.onerror=()=>{
   const s=$('ws-status');
   s.classList.remove('live');s.classList.add('err');
-  s.innerHTML='<span class="dot"></span>WS_ERROR';
+  s.innerHTML='<span class="dot"></span>RELAY OFFLINE';
   showError('Connection lost. Reload to retry.');
 };
 ws.onclose=()=>{
@@ -396,13 +369,6 @@ function b64decode(s){
   return r;
 }
 
-function tickClock(){
-  const d=new Date();
-  const pad=(n)=>String(n).padStart(2,'0');
-  $('top-clock').textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());
-}
-tickClock();
-setInterval(tickClock,1000);
 </script>
 </body>
 </html>

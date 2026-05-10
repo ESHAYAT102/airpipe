@@ -3,79 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIRPIPE / DOWNLOAD</title>
+<title>Download · AirPipe</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260510a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=20260510a">
+<link rel="stylesheet" href="/static/style.css?v=20260510b">
 </head>
 <body>
 
 <header class="top-strip">
-  <div class="strip-cell brand"><a href="/" style="color:inherit;text-decoration:none">AIRPIPE</a></div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">FLOW</span>
-    <span class="mono-big" id="flow-mode">DOWNLOAD</span>
-  </div>
-  <div class="strip-cell tagline">
-    <span id="flow-tagline">FETCH_CIPHERTEXT · DECRYPT_LOCAL · SAVE</span>
-  </div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">RELAY_TIME</span>
-    <span class="mono-big" id="top-clock">--:--:--</span>
-  </div>
-  <div class="strip-cell status live"><span class="dot"></span>RELAY_ONLINE</div>
-  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">
-    <span>SOURCE</span><span class="arrow">→</span>
-  </a>
+  <div class="strip-cell brand"><a href="/">AIRPIPE</a></div>
+  <div class="strip-cell spacer"></div>
+  <div class="strip-cell status live"><span class="dot"></span>RELAY ONLINE</div>
+  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">GITHUB <span class="arrow">↗</span></a>
 </header>
 
 <main class="grid single">
 
-  <section id="lookup" class="block" data-label="01">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val" id="lookup-status">looking up...</span>
-    </div>
+  <section id="lookup" class="block">
+    <h2>Looking up</h2>
+    <p class="block-sub">Checking whether this passphrase is a stored transfer or a live sender.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="loading" class="block hidden" data-label="02">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val" id="load-status">downloading</span>
-    </div>
+  <section id="loading" class="block hidden">
+    <h2 id="load-status">Downloading</h2>
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
       <div class="progress-text" id="ptext">awaiting bytes...</div>
     </div>
+  </section>
+
+  <section id="waiting" class="block hidden">
+    <h2>Waiting for the sender</h2>
+    <p class="block-sub">The sender is online and holds this passphrase. As soon as they pick a file, the connection starts and bytes stream directly between you.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="waiting" class="block hidden" data-label="02">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">waiting for sender</span>
-    </div>
-    <p class="block-sub">Sender is online and holds this passphrase. As soon as they pick a file, the WebRTC handshake starts and bytes begin streaming directly between you.</p>
+  <section id="negotiating" class="block hidden">
+    <h2>Connecting</h2>
+    <p class="block-sub">Negotiating a direct WebRTC link. The relay only sees ciphertext signaling.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="negotiating" class="block hidden" data-label="03">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">negotiating peer</span>
-    </div>
-    <p class="block-sub">Exchanging SDP and ICE candidates through the relay. The relay sees ciphertext signaling, nothing else.</p>
-    <div class="dots"><span></span><span></span><span></span></div>
-  </section>
-
-  <section id="receiving" class="block hidden" data-label="04">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">receiving</span>
-    </div>
+  <section id="receiving" class="block hidden">
+    <h2>Receiving</h2>
     <div class="transport" id="transport"></div>
     <div class="filename" id="recv-filename">-</div>
     <div class="size-info" id="recv-size"></div>
@@ -86,27 +59,27 @@
     <div class="speed-info" id="speed"></div>
   </section>
 
-  <section id="complete" class="block hidden" data-label="OK">
+  <section id="complete" class="block hidden">
     <div class="checkmark">✓</div>
-    <h2 style="color:var(--accent)">TRANSFER COMPLETE</h2>
+    <h2 style="color:var(--accent)">Transfer complete</h2>
     <div class="transport" id="done-transport"></div>
     <div class="filename" id="fname">-</div>
     <div class="size-info" id="file-size">-</div>
-    <p class="block-sub">If the download didn't trigger automatically, your browser may have blocked it. Reload the page to try again.</p>
+    <p class="block-sub">If the download didn't trigger automatically, your browser may have blocked it. Reload to try again.</p>
   </section>
 
-  <section id="error" class="block hidden" data-label="!!">
-    <h2 style="color:var(--accent)">ERROR</h2>
+  <section id="error" class="block hidden">
+    <h2 style="color:var(--accent)">Couldn't find that transfer</h2>
     <div class="filename" id="errmsg">-</div>
-    <p class="block-sub">Mailbox transfers expire 10 minutes after upload. Direct (P2P) transfers need both sides online at the same time. Reload to try again.</p>
+    <p class="block-sub">Stored transfers expire 10 minutes after upload. Direct transfers need both sides online at the same time. Check the passphrase and reload.</p>
   </section>
 
 </main>
 
 <footer class="bottom-strip">
-  <div class="strip-cell">END_TO_END_ENCRYPTED · NACL_SECRETBOX</div>
-  <div class="strip-cell">KEY_NEVER_LEAVES_BROWSER</div>
-  <div class="strip-cell"><a href="/">RETURN_HOME →</a></div>
+  <span class="strip-cell">End-to-end encrypted</span>
+  <span class="spacer"></span>
+  <span class="strip-cell"><a href="/">Home</a></span>
 </footer>
 
 <script src="/static/nacl-fast.min.js"></script>
@@ -214,10 +187,8 @@ function decode(data) {
 
 // ---- mailbox flow ----
 async function runMailbox() {
-  $('flow-mode').textContent = 'DOWNLOAD';
-  $('flow-tagline').textContent = 'FETCH_CIPHERTEXT · DECRYPT_LOCAL · SAVE';
   show('loading');
-  $('load-status').textContent = 'downloading';
+  $('load-status').textContent = 'Downloading';
 
   try {
     const resp = await fetch('/raw/' + token);
@@ -298,8 +269,6 @@ let startTime = 0;
 let lastUIUpdate = 0;
 
 function runLive() {
-  $('flow-mode').textContent = 'RECEIVE LIVE';
-  $('flow-tagline').textContent = 'BROWSER ← SENDER · WEBRTC P2P · DECRYPT_LOCAL';
   phase = 'waiting';
   show('waiting');
 
@@ -469,13 +438,6 @@ function finishTransfer() {
   try { ws.close() } catch (_) { }
 }
 
-function tickClock() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  $('top-clock').textContent = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
-}
-tickClock();
-setInterval(tickClock, 1000);
 </script>
 </body>
 </html>

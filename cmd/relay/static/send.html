@@ -3,39 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIRPIPE / SEND</title>
+<title>Send · AirPipe</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=20260510a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=20260510a">
+<link rel="stylesheet" href="/static/style.css?v=20260510b">
 </head>
 <body>
 
 <header class="top-strip">
-  <div class="strip-cell brand"><a href="/" style="color:inherit;text-decoration:none">AIRPIPE</a></div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">FLOW</span>
-    <span class="mono-big">SEND</span>
-  </div>
-  <div class="strip-cell tagline">
-    <span>BROWSER · ENCRYPT_LOCAL · UPLOAD_CIPHERTEXT</span>
-  </div>
-  <div class="strip-cell stacked">
-    <span class="mono-tiny">RELAY_TIME</span>
-    <span class="mono-big" id="top-clock">--:--:--</span>
-  </div>
-  <div class="strip-cell status live"><span class="dot"></span>RELAY_ONLINE</div>
-  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">
-    <span>SOURCE</span><span class="arrow">→</span>
-  </a>
+  <div class="strip-cell brand"><a href="/">AIRPIPE</a></div>
+  <div class="strip-cell spacer"></div>
+  <div class="strip-cell status live"><span class="dot"></span>RELAY ONLINE</div>
+  <a href="https://github.com/Sanyam-G/Airpipe" target="_blank" rel="noopener" class="strip-cell port-btn">GITHUB <span class="arrow">↗</span></a>
 </header>
 
 <main class="grid single">
 
-  <section id="select" class="block" data-label="01">
-    <h2>SELECT FILE</h2>
-    <p class="block-sub">Encryption happens locally. The relay only ever sees ciphertext and a 16-char hex token. Never your file, your passphrase, or your key.</p>
+  <section id="select" class="block">
+    <h2>Send a file</h2>
+    <p class="block-sub">Encryption happens in your browser. The relay holds the ciphertext for 10 minutes; the receiver decrypts locally with the passphrase.</p>
     <div class="drop-zone" id="dropzone">
       <div class="drop-icon">+</div>
       <div class="drop-label">tap to select or <strong>drop a file</strong></div>
@@ -44,8 +32,8 @@
     <input type="file" id="fileinput">
   </section>
 
-  <section id="encrypting" class="block hidden" data-label="02">
-    <h2>ENCRYPTING</h2>
+  <section id="encrypting" class="block hidden">
+    <h2>Encrypting</h2>
     <div class="filename" id="enc-name">-</div>
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" id="enc-progress"></div></div>
@@ -53,8 +41,8 @@
     </div>
   </section>
 
-  <section id="uploading" class="block hidden" data-label="03">
-    <h2>UPLOADING CIPHERTEXT</h2>
+  <section id="uploading" class="block hidden">
+    <h2>Uploading</h2>
     <div class="filename" id="up-name">-</div>
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" id="up-progress"></div></div>
@@ -62,9 +50,9 @@
     </div>
   </section>
 
-  <section id="done" class="block hidden" data-label="04">
-    <h2>READY TO SHARE</h2>
-    <p class="block-sub">Tell your receiver the passphrase. They type it at <code id="phrase-domain">airpipe.sanyamgarg.com</code>, scan the QR, or run <code>airpipe download &lt;passphrase&gt;</code>.</p>
+  <section id="done" class="block hidden">
+    <h2>Share this passphrase</h2>
+    <p class="block-sub">Tell your receiver. They type it at <code id="phrase-domain">airpipe.sanyamgarg.com</code>, scan the QR, or run <code>airpipe download &lt;passphrase&gt;</code>.</p>
 
     <div class="phrase-display">
       <div class="phrase-words" id="phrase-display" onclick="copyPhrase()">RIVER FALCON MARBLE 42</div>
@@ -75,21 +63,21 @@
 
     <div class="code-block" onclick="copyURL()">
       <code id="share-url">-</code>
-      <span class="copied" id="copy-badge">COPIED</span>
+      <span class="copied" id="copy-badge">copied</span>
     </div>
   </section>
 
-  <section id="error" class="block hidden" data-label="!!">
-    <h2 style="color:var(--accent)">ERROR</h2>
+  <section id="error" class="block hidden">
+    <h2 style="color:var(--accent)">Error</h2>
     <div class="filename" id="errmsg">-</div>
   </section>
 
 </main>
 
 <footer class="bottom-strip">
-  <div class="strip-cell">END_TO_END_ENCRYPTED · NACL_SECRETBOX</div>
-  <div class="strip-cell">FILES_EXPIRE · 10_MIN</div>
-  <div class="strip-cell"><a href="/">RETURN_HOME →</a></div>
+  <span class="strip-cell">End-to-end encrypted</span>
+  <span class="spacer"></span>
+  <span class="strip-cell"><a href="/">Home</a></span>
 </footer>
 
 <script src="/static/nacl-fast.min.js"></script>
@@ -191,7 +179,7 @@ async function handleFile(file){
     payload.set(fileBytes,4+fnLen);
 
     document.getElementById('enc-progress').style.width='60%';
-    document.getElementById('enc-text').textContent='encrypting · NaCl secretbox...';
+    document.getElementById('enc-text').textContent='encrypting...';
 
     const nonce=nacl.randomBytes(24);
     const ciphertext=nacl.secretbox(payload,nonce,keyBytes);
@@ -204,7 +192,7 @@ async function handleFile(file){
     document.getElementById('enc-text').textContent='encrypted · '+formatSize(encrypted.length);
 
     show('uploading');
-    document.getElementById('up-name').textContent=file.name+' (encrypted)';
+    document.getElementById('up-name').textContent=file.name;
 
     const formData=new FormData();
     formData.append('token',derivedToken);
@@ -233,7 +221,6 @@ async function handleFile(file){
       document.getElementById('phrase-domain').textContent=location.host;
       document.getElementById('share-url').textContent=shareURL;
 
-      // Generate QR (cream bg + warm-dark modules — kept light for camera scan reliability)
       const qr=qrcode(0,'M');
       qr.addData(shareURL);
       qr.make();
@@ -264,14 +251,6 @@ async function handleFile(file){
     showError(e.message||'Encryption failed');
   }
 }
-
-function tickClock(){
-  const d=new Date();
-  const pad=(n)=>String(n).padStart(2,'0');
-  document.getElementById('top-clock').textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());
-}
-tickClock();
-setInterval(tickClock,1000);
 </script>
 </body>
 </html>
