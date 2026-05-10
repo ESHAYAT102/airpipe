@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIRPIPE / UPLOAD</title>
+<title>AIRPIPE / LIVE SEND</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,10 +16,10 @@
   <div class="strip-cell brand"><a href="/" style="color:inherit;text-decoration:none">AIRPIPE</a></div>
   <div class="strip-cell stacked">
     <span class="mono-tiny">FLOW</span>
-    <span class="mono-big">UPLOAD</span>
+    <span class="mono-big">LIVE SEND</span>
   </div>
   <div class="strip-cell tagline">
-    <span>BROWSER → CLI · WEBRTC P2P · RELAY FALLBACK</span>
+    <span>BROWSER → BROWSER · WEBRTC P2P · RELAY FALLBACK</span>
   </div>
   <div class="strip-cell stacked">
     <span class="mono-tiny">RELAY_TIME</span>
@@ -33,21 +33,30 @@
 
 <main class="grid single">
 
-  <section id="connecting" class="block" data-label="01">
+  <section id="waiting" class="block" data-label="01">
     <div class="status-row">
       <span class="status-label">STATUS</span>
-      <span class="status-val">connecting</span>
+      <span class="status-val">waiting for receiver</span>
     </div>
-    <p class="block-sub">Establishing encrypted WebSocket to the relay. Once paired with the receiver, we'll attempt a direct WebRTC DataChannel.</p>
+    <p class="block-sub">Share the link or QR with your receiver. They open it, both browsers pair through the relay, then you pick a file. Relay only sees ciphertext signaling.</p>
+    <div class="phrase-display">
+      <div class="phrase-words" id="phrase-display" onclick="copyPhrase()">-</div>
+      <div class="phrase-hint">tap to copy · session-scoped, not a passphrase</div>
+    </div>
+    <div class="qr-wrap" id="qr"></div>
+    <div class="code-block" onclick="copyURL()">
+      <code id="share-url">-</code>
+      <span class="copied" id="copy-badge">COPIED</span>
+    </div>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
-  <section id="select" class="block hidden" data-label="01">
+  <section id="select" class="block hidden" data-label="02">
     <div class="status-row">
       <span class="status-label">STATUS</span>
-      <span class="status-val">ready</span>
+      <span class="status-val">receiver connected</span>
     </div>
-    <p class="block-sub">File is encrypted in your browser before any bytes leave. The relay only ever sees ciphertext.</p>
+    <p class="block-sub">Drop a file. It encrypts in your browser, negotiates WebRTC, then streams direct to the receiver. Falls back to relay streaming if NAT punching fails.</p>
     <div class="drop-zone" id="dropzone">
       <div class="drop-icon">+</div>
       <div class="drop-label">tap to select or <strong>drop a file</strong></div>
@@ -56,29 +65,20 @@
     <input type="file" id="fileinput">
   </section>
 
-  <section id="preparing" class="block hidden" data-label="02">
-    <div class="status-row">
-      <span class="status-label">STATUS</span>
-      <span class="status-val">handshaking</span>
-    </div>
-    <div class="filename" id="prep-name">-</div>
-    <p class="block-sub">Waiting for receiver Ready, then negotiating WebRTC offer/answer.</p>
-    <div class="dots"><span></span><span></span><span></span></div>
-  </section>
-
   <section id="negotiating" class="block hidden" data-label="03">
     <div class="status-row">
       <span class="status-label">STATUS</span>
       <span class="status-val">negotiating peer</span>
     </div>
-    <p class="block-sub">Trickling ICE candidates · attempting direct WebRTC. Falls back to relay-streaming after 15s if NAT punching fails.</p>
+    <div class="filename" id="neg-name">-</div>
+    <p class="block-sub">Trickling ICE candidates, attempting direct WebRTC. Falls back to relay-streaming after 15s if NAT punching fails.</p>
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
   <section id="sending" class="block hidden" data-label="04">
     <div class="status-row">
       <span class="status-label">STATUS</span>
-      <span class="status-val">uploading</span>
+      <span class="status-val">sending</span>
     </div>
     <div class="transport" id="transport"></div>
     <div class="filename" id="filename">-</div>
@@ -96,11 +96,13 @@
     <div class="transport" id="done-transport"></div>
     <div class="filename" id="done-name">-</div>
     <div class="size-info" id="done-size"></div>
+    <p class="block-sub">Reload to send another file.</p>
   </section>
 
   <section id="error" class="block hidden" data-label="!!">
     <h2 style="color:var(--accent)">ERROR</h2>
     <div class="filename" id="errmsg">-</div>
+    <p class="block-sub">Reload to start over.</p>
   </section>
 
 </main>
@@ -112,15 +114,15 @@
 </footer>
 
 <script src="/static/nacl-fast.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 const CHUNK=64*1024;
-const PROTOCOL_VERSION=2;
 const NEGOTIATE_TIMEOUT_MS=15000;
 
 const MSG_METADATA=0x01, MSG_READY=0x02, MSG_COMPLETE=0x03, MSG_ERROR=0x04;
-const MSG_CHUNK=0x10, MSG_VERSION=0x20;
+const MSG_CHUNK=0x10;
 const MSG_SDP_OFFER=0x30, MSG_SDP_ANSWER=0x31, MSG_ICE_CANDIDATE=0x32;
-const MSG_P2P_READY=0x33, MSG_P2P_FAIL=0x34;
+const MSG_P2P_READY=0x33, MSG_P2P_FAIL=0x34, MSG_PEER_JOIN=0x35;
 
 const ICE_SERVERS=[
   {urls:'stun:stun.l.google.com:19302'},
@@ -128,55 +130,152 @@ const ICE_SERVERS=[
   {urls:'stun:stun.cloudflare.com:3478'},
 ];
 
-const token=location.pathname.split('/').pop();
-const keyHash=location.hash.slice(1);
-if(!token||!keyHash){showError('Invalid link');throw''}
-
-let keyBytes;
-try{
-  keyBytes=b64decode(keyHash);
-  if(keyBytes.length!==32)throw'';
-}catch(e){showError('Invalid encryption key');throw e}
-
 function $(id){return document.getElementById(id)}
 
+function randomHex(nBytes){
+  const b=nacl.randomBytes(nBytes);
+  return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function b64encode(bytes){
+  let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
 function formatSize(bytes){
   if(bytes===0)return '0 B';
   const units=['B','KB','MB','GB'];
   const i=Math.floor(Math.log(bytes)/Math.log(1024));
   return (bytes/Math.pow(1024,i)).toFixed(i===0?0:1)+' '+units[i];
 }
-
 function formatSpeed(bps){
   if(bps<1024)return bps.toFixed(0)+' B/s';
   if(bps<1048576)return (bps/1024).toFixed(1)+' KB/s';
   return (bps/1048576).toFixed(1)+' MB/s';
 }
+function encrypt(data,key){
+  const nonce=nacl.randomBytes(24);
+  const enc=nacl.secretbox(data,nonce,key);
+  const r=new Uint8Array(24+enc.length);
+  r.set(nonce);r.set(enc,24);
+  return r;
+}
+function decrypt(data,key){
+  if(data.length<24)return null;
+  const nonce=data.slice(0,24);
+  const ct=data.slice(24);
+  return nacl.secretbox.open(ct,nonce,key);
+}
+function encode(type,payload){
+  const r=new Uint8Array(5+payload.length);
+  r[0]=type;
+  r[1]=(payload.length>>24)&0xff;
+  r[2]=(payload.length>>16)&0xff;
+  r[3]=(payload.length>>8)&0xff;
+  r[4]=payload.length&0xff;
+  r.set(payload,5);
+  return r;
+}
+function decode(data){
+  if(data.length<5)return null;
+  const type=data[0];
+  const len=(data[1]<<24)|(data[2]<<16)|(data[3]<<8)|data[4];
+  if(data.length<5+len)return null;
+  return {type,payload:data.slice(5,5+len)};
+}
+function show(id){
+  ['waiting','select','negotiating','sending','complete','error'].forEach(x=>$(x).classList.add('hidden'));
+  $(id).classList.remove('hidden');
+}
+function showError(msg){
+  phase='error';
+  show('error');
+  $('errmsg').textContent=msg;
+}
+
+const token=randomHex(8);
+const keyBytes=nacl.randomBytes(32);
+const shareURL=location.origin+'/live/'+token+'#'+b64encode(keyBytes);
+
+let currentPhrase=token.match(/.{1,4}/g).join(' ').toUpperCase();
+$('phrase-display').textContent=currentPhrase;
+$('share-url').textContent=shareURL;
+
+function copyURL(){
+  navigator.clipboard.writeText(shareURL);
+  const badge=$('copy-badge');
+  badge.classList.add('show');
+  setTimeout(()=>badge.classList.remove('show'),1500);
+}
+function copyPhrase(){
+  navigator.clipboard.writeText(shareURL);
+  const badge=$('copy-badge');
+  badge.classList.add('show');
+  setTimeout(()=>badge.classList.remove('show'),1500);
+}
+
+(function renderQR(){
+  const qr=qrcode(0,'M');
+  qr.addData(shareURL);
+  qr.make();
+  const modules=qr.getModuleCount();
+  const cellSize=Math.max(3,Math.floor(240/modules));
+  const canvas=document.createElement('canvas');
+  const size=modules*cellSize;
+  canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#ECE6DC';ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#1B1714';
+  for(let r=0;r<modules;r++){
+    for(let c=0;c<modules;c++){
+      if(qr.isDark(r,c)) ctx.fillRect(c*cellSize,r*cellSize,cellSize,cellSize);
+    }
+  }
+  $('qr').innerHTML='';
+  $('qr').appendChild(canvas);
+})();
 
 const ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/'+token);
 ws.binaryType='arraybuffer';
 
-const waiters={};
-function awaitMsg(type,timeoutMs){
-  return new Promise((resolve,reject)=>{
-    waiters[type]=resolve;
-    if(timeoutMs){
-      setTimeout(()=>{
-        if(waiters[type]===resolve){delete waiters[type];reject(new Error('timeout waiting for type 0x'+type.toString(16)))}
-      },timeoutMs);
-    }
-  });
-}
+let pc=null, dc=null;
+let phase='waiting';
+let peerJoined=false;
 
-let pc=null,dc=null;
-let phase='connecting';
+ws.onopen=()=>{
+  const s=$('ws-status');
+  s.classList.remove('err');s.classList.add('live');
+  s.innerHTML='<span class="dot"></span>RELAY_LINKED';
+};
+
+ws.onerror=()=>{
+  const s=$('ws-status');
+  s.classList.remove('live');s.classList.add('err');
+  s.innerHTML='<span class="dot"></span>WS_ERROR';
+  showError('Connection to relay lost. Reload to retry.');
+};
+
+ws.onclose=()=>{
+  if(phase==='sending'||phase==='negotiating'){
+    showError('Connection closed during '+phase+'. Receiver may have disconnected.');
+  }
+};
 
 ws.onmessage=async(evt)=>{
   const enc=new Uint8Array(evt.data);
   const dec=decrypt(enc,keyBytes);
-  if(!dec)return;
+  if(!dec){
+    return;
+  }
   const msg=decode(dec);
   if(!msg)return;
+
+  if(msg.type===MSG_PEER_JOIN){
+    if(!peerJoined){
+      peerJoined=true;
+      phase='select';
+      show('select');
+    }
+    return;
+  }
   if(msg.type===MSG_ICE_CANDIDATE&&pc){
     try{
       const c=JSON.parse(new TextDecoder().decode(msg.payload));
@@ -189,31 +288,6 @@ ws.onmessage=async(evt)=>{
       await pc.setRemoteDescription({type:'answer',sdp:new TextDecoder().decode(msg.payload)});
     }catch(e){console.warn('setRemoteDescription:',e)}
     return;
-  }
-  if(waiters[msg.type]){
-    const w=waiters[msg.type];
-    delete waiters[msg.type];
-    w(msg);
-  }
-};
-
-ws.onopen=()=>{
-  phase='select';
-  show('select');
-  const s=$('ws-status');
-  s.classList.remove('err');s.classList.add('live');
-  s.innerHTML='<span class="dot"></span>RELAY_LINKED';
-};
-ws.onerror=()=>{
-  const s=$('ws-status');
-  s.classList.remove('live');s.classList.add('err');
-  s.innerHTML='<span class="dot"></span>WS_ERROR';
-  showError('Connection lost. Reload to retry.');
-};
-ws.onclose=()=>{
-  // Show error if we're past select but not yet complete (negotiating/sending mid-flight).
-  if(phase!=='connecting'&&phase!=='select'&&phase!=='complete'){
-    showError('Connection closed during transfer ('+phase+')');
   }
 };
 
@@ -232,18 +306,12 @@ dropzone.addEventListener('drop',(e)=>{
 async function sendFile(file){
   $('filename').textContent=file.name;
   $('send-size').textContent=formatSize(file.size);
-  $('prep-name').textContent=file.name;
+  $('neg-name').textContent=file.name;
 
   try{
-    // Immediate UI feedback: switch to preparing state so user sees something is happening.
-    phase='preparing';
-    show('preparing');
-
-    ws.send(encrypt(encode(MSG_VERSION,new Uint8Array([PROTOCOL_VERSION])),keyBytes));
-    await awaitMsg(MSG_READY,30000);
-
     phase='negotiating';
     show('negotiating');
+
     let usingP2P=false;
     try{
       await negotiateP2P();
@@ -341,60 +409,6 @@ function sendWS(plaintext){
 }
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-
-function show(id){
-  ['connecting','select','preparing','negotiating','sending','complete','error'].forEach(x=>$(x).classList.add('hidden'));
-  $(id).classList.remove('hidden');
-}
-
-function showError(msg){
-  phase='error';
-  show('error');
-  $('errmsg').textContent=msg;
-}
-
-function encrypt(data,key){
-  const nonce=nacl.randomBytes(24);
-  const enc=nacl.secretbox(data,nonce,key);
-  const r=new Uint8Array(24+enc.length);
-  r.set(nonce);r.set(enc,24);
-  return r;
-}
-
-function decrypt(data,key){
-  if(data.length<24)return null;
-  const nonce=data.slice(0,24);
-  const ct=data.slice(24);
-  return nacl.secretbox.open(ct,nonce,key);
-}
-
-function encode(type,payload){
-  const r=new Uint8Array(5+payload.length);
-  r[0]=type;
-  r[1]=(payload.length>>24)&0xff;
-  r[2]=(payload.length>>16)&0xff;
-  r[3]=(payload.length>>8)&0xff;
-  r[4]=payload.length&0xff;
-  r.set(payload,5);
-  return r;
-}
-
-function decode(data){
-  if(data.length<5)return null;
-  const type=data[0];
-  const len=(data[1]<<24)|(data[2]<<16)|(data[3]<<8)|data[4];
-  if(data.length<5+len)return null;
-  return {type,payload:data.slice(5,5+len)};
-}
-
-function b64decode(s){
-  s=s.replace(/-/g,'+').replace(/_/g,'/');
-  while(s.length%4)s+='=';
-  const b=atob(s);
-  const r=new Uint8Array(b.length);
-  for(let i=0;i<b.length;i++)r[i]=b.charCodeAt(i);
-  return r;
-}
 
 function tickClock(){
   const d=new Date();
