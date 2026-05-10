@@ -38,11 +38,7 @@
       <span class="status-label">STATUS</span>
       <span class="status-val">waiting for receiver</span>
     </div>
-    <p class="block-sub">Share the link or QR with your receiver. They open it, both browsers pair through the relay, then you pick a file. Relay only sees ciphertext signaling.</p>
-    <div class="phrase-display">
-      <div class="phrase-words" id="phrase-display" onclick="copyPhrase()">-</div>
-      <div class="phrase-hint">tap to copy · session-scoped, not a passphrase</div>
-    </div>
+    <p class="block-sub">In the same room? <strong>Receiver scans the QR.</strong> Anywhere else? <strong>Send them the link.</strong> When they open it, both browsers pair through the relay, then you pick a file. The relay only ever sees ciphertext.</p>
     <div class="qr-wrap" id="qr"></div>
     <div class="code-block" onclick="copyURL()">
       <code id="share-url">-</code>
@@ -195,17 +191,9 @@ const token=randomHex(8);
 const keyBytes=nacl.randomBytes(32);
 const shareURL=location.origin+'/live/'+token+'#'+b64encode(keyBytes);
 
-let currentPhrase=token.match(/.{1,4}/g).join(' ').toUpperCase();
-$('phrase-display').textContent=currentPhrase;
 $('share-url').textContent=shareURL;
 
 function copyURL(){
-  navigator.clipboard.writeText(shareURL);
-  const badge=$('copy-badge');
-  badge.classList.add('show');
-  setTimeout(()=>badge.classList.remove('show'),1500);
-}
-function copyPhrase(){
   navigator.clipboard.writeText(shareURL);
   const badge=$('copy-badge');
   badge.classList.add('show');
