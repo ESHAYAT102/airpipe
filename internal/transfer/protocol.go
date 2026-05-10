@@ -21,6 +21,7 @@ const (
 	MsgTypeICECandidate MessageType = 0x32
 	MsgTypeP2PReady     MessageType = 0x33
 	MsgTypeP2PFail      MessageType = 0x34
+	MsgTypePeerJoin     MessageType = 0x35
 )
 
 const ProtocolVersion byte = 2
@@ -113,6 +114,10 @@ func NewP2PReadyMessage() Message {
 
 func NewP2PFailMessage(reason string) Message {
 	return Message{Type: MsgTypeP2PFail, Payload: []byte(reason)}
+}
+
+func NewPeerJoinMessage() Message {
+	return Message{Type: MsgTypePeerJoin, Payload: nil}
 }
 
 func ParseMetadata(payload []byte) (Metadata, error) {

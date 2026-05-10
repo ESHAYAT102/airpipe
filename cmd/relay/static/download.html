@@ -16,10 +16,10 @@
   <div class="strip-cell brand"><a href="/" style="color:inherit;text-decoration:none">AIRPIPE</a></div>
   <div class="strip-cell stacked">
     <span class="mono-tiny">FLOW</span>
-    <span class="mono-big">DOWNLOAD</span>
+    <span class="mono-big" id="flow-mode">DOWNLOAD</span>
   </div>
   <div class="strip-cell tagline">
-    <span>FETCH_CIPHERTEXT · DECRYPT_LOCAL · SAVE</span>
+    <span id="flow-tagline">FETCH_CIPHERTEXT · DECRYPT_LOCAL · SAVE</span>
   </div>
   <div class="strip-cell stacked">
     <span class="mono-tiny">RELAY_TIME</span>
@@ -33,10 +33,18 @@
 
 <main class="grid single">
 
-  <section id="loading" class="block" data-label="01">
+  <section id="lookup" class="block" data-label="01">
     <div class="status-row">
       <span class="status-label">STATUS</span>
-      <span class="status-val" id="load-status">connecting...</span>
+      <span class="status-val" id="lookup-status">looking up...</span>
+    </div>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </section>
+
+  <section id="loading" class="block hidden" data-label="02">
+    <div class="status-row">
+      <span class="status-label">STATUS</span>
+      <span class="status-val" id="load-status">downloading</span>
     </div>
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
@@ -45,9 +53,43 @@
     <div class="dots"><span></span><span></span><span></span></div>
   </section>
 
+  <section id="waiting" class="block hidden" data-label="02">
+    <div class="status-row">
+      <span class="status-label">STATUS</span>
+      <span class="status-val">waiting for sender</span>
+    </div>
+    <p class="block-sub">Sender is online and holds this passphrase. As soon as they pick a file, the WebRTC handshake starts and bytes begin streaming directly between you.</p>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </section>
+
+  <section id="negotiating" class="block hidden" data-label="03">
+    <div class="status-row">
+      <span class="status-label">STATUS</span>
+      <span class="status-val">negotiating peer</span>
+    </div>
+    <p class="block-sub">Exchanging SDP and ICE candidates through the relay. The relay sees ciphertext signaling, nothing else.</p>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </section>
+
+  <section id="receiving" class="block hidden" data-label="04">
+    <div class="status-row">
+      <span class="status-label">STATUS</span>
+      <span class="status-val">receiving</span>
+    </div>
+    <div class="transport" id="transport"></div>
+    <div class="filename" id="recv-filename">-</div>
+    <div class="size-info" id="recv-size"></div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="live-progress"></div></div>
+      <div class="progress-text" id="live-ptext">0%</div>
+    </div>
+    <div class="speed-info" id="speed"></div>
+  </section>
+
   <section id="complete" class="block hidden" data-label="OK">
     <div class="checkmark">✓</div>
     <h2 style="color:var(--accent)">TRANSFER COMPLETE</h2>
+    <div class="transport" id="done-transport"></div>
     <div class="filename" id="fname">-</div>
     <div class="size-info" id="file-size">-</div>
     <p class="block-sub">If the download didn't trigger automatically, your browser may have blocked it. Reload the page to try again.</p>
@@ -56,7 +98,7 @@
   <section id="error" class="block hidden" data-label="!!">
     <h2 style="color:var(--accent)">ERROR</h2>
     <div class="filename" id="errmsg">-</div>
-    <p class="block-sub">Files expire 10 minutes after upload. If the link is older than that, ask the sender to send again.</p>
+    <p class="block-sub">Mailbox transfers expire 10 minutes after upload. Direct (P2P) transfers need both sides online at the same time. Reload to try again.</p>
   </section>
 
 </main>
@@ -69,123 +111,371 @@
 
 <script src="/static/nacl-fast.min.js"></script>
 <script>
-const token=location.pathname.split('/').pop();
-const keyStr=location.hash.slice(1);
-if(!token||!keyStr){showError('Invalid link');throw''}
+const NEGOTIATE_TIMEOUT_MS = 15000;
+
+const MSG_METADATA = 0x01, MSG_READY = 0x02, MSG_COMPLETE = 0x03, MSG_ERROR = 0x04;
+const MSG_CHUNK = 0x10;
+const MSG_SDP_OFFER = 0x30, MSG_SDP_ANSWER = 0x31, MSG_ICE_CANDIDATE = 0x32;
+const MSG_P2P_READY = 0x33, MSG_P2P_FAIL = 0x34, MSG_PEER_JOIN = 0x35;
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+
+const token = location.pathname.split('/').pop();
+const keyStr = location.hash.slice(1);
+if (!token || !keyStr) { showError('Invalid link'); throw '' }
 
 let key;
-try{
-  key=b64decode(keyStr);
-  if(key.length!==32)throw'';
-}catch(e){showError('Invalid encryption key');throw e}
+try {
+  key = b64decode(keyStr);
+  if (key.length !== 32) throw '';
+} catch (e) { showError('Invalid encryption key'); throw e }
 
-function formatSize(bytes){
-  if(bytes===0)return '0 B';
-  const units=['B','KB','MB','GB'];
-  const i=Math.floor(Math.log(bytes)/Math.log(1024));
-  return (bytes/Math.pow(1024,i)).toFixed(i===0?0:1)+' '+units[i];
+function $(id) { return document.getElementById(id) }
+
+function show(id) {
+  ['lookup', 'loading', 'waiting', 'negotiating', 'receiving', 'complete', 'error'].forEach(x => $(x).classList.add('hidden'));
+  $(id).classList.remove('hidden');
 }
 
-(async()=>{
-  try{
-    setStatus('downloading');
+function showError(msg) { show('error'); $('errmsg').textContent = msg }
 
-    const resp=await fetch('/raw/'+token);
-    if(!resp.ok){showError('File not found or expired');return}
-
-    const contentLength=resp.headers.get('content-length');
-    const totalSize=contentLength?parseInt(contentLength):null;
-
-    let encrypted;
-    if(totalSize && resp.body){
-      const reader=resp.body.getReader();
-      const chunks=[];
-      let received=0;
-      while(true){
-        const {done,value}=await reader.read();
-        if(done)break;
-        chunks.push(value);
-        received+=value.length;
-        const pct=Math.round(received/totalSize*100);
-        document.getElementById('progress').style.width=pct+'%';
-        document.getElementById('ptext').textContent=formatSize(received)+' / '+formatSize(totalSize);
-      }
-      encrypted=new Uint8Array(received);
-      let pos=0;
-      for(const chunk of chunks){encrypted.set(chunk,pos);pos+=chunk.length}
-    }else{
-      document.getElementById('progress').style.width='50%';
-      encrypted=new Uint8Array(await resp.arrayBuffer());
-    }
-
-    if(encrypted.length<24){showError('File too small to contain encrypted data');return}
-
-    setStatus('decrypting');
-    document.getElementById('progress').style.width='80%';
-    document.getElementById('ptext').textContent='NaCl secretbox · opening payload';
-
-    const nonce=encrypted.slice(0,24);
-    const ciphertext=encrypted.slice(24);
-
-    let decrypted;
-    try{
-      decrypted=nacl.secretbox.open(ciphertext,nonce,key);
-    }catch(e){
-      showError('Decryption error: '+(e.message||'corrupted data'));
-      return;
-    }
-    if(!decrypted){showError('Decryption failed. Wrong key or corrupted file.');return}
-
-    document.getElementById('progress').style.width='100%';
-
-    const fnLen=(decrypted[0]<<24)|(decrypted[1]<<16)|(decrypted[2]<<8)|decrypted[3];
-    const filename=new TextDecoder().decode(decrypted.slice(4,4+fnLen));
-    const content=decrypted.slice(4+fnLen);
-
-    document.getElementById('fname').textContent=filename;
-    document.getElementById('file-size').textContent=formatSize(content.length);
-    show('complete');
-
-    const blob=new Blob([content]);
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=filename;
-    a.click();
-  }catch(e){
-    showError(e.message||'Download failed');
-  }
-})();
-
-function setStatus(text){
-  document.getElementById('load-status').textContent=text;
+function formatSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
 }
-
-function show(id){
-  ['loading','complete','error'].forEach(x=>document.getElementById(x).classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+function formatSpeed(bps) {
+  if (bps < 1024) return bps.toFixed(0) + ' B/s';
+  if (bps < 1048576) return (bps / 1024).toFixed(1) + ' KB/s';
+  return (bps / 1048576).toFixed(1) + ' MB/s';
 }
-
-function showError(msg){
-  show('error');
-  document.getElementById('errmsg').textContent=msg;
-}
-
-function b64decode(s){
-  s=s.replace(/-/g,'+').replace(/_/g,'/');
-  while(s.length%4)s+='=';
-  const b=atob(s);
-  const r=new Uint8Array(b.length);
-  for(let i=0;i<b.length;i++)r[i]=b.charCodeAt(i);
+function b64decode(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const b = atob(s);
+  const r = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) r[i] = b.charCodeAt(i);
   return r;
 }
+function encrypt(data, k) {
+  const nonce = nacl.randomBytes(24);
+  const enc = nacl.secretbox(data, nonce, k);
+  const r = new Uint8Array(24 + enc.length);
+  r.set(nonce); r.set(enc, 24);
+  return r;
+}
+function decrypt(data, k) {
+  if (data.length < 24) return null;
+  const nonce = data.slice(0, 24);
+  const ct = data.slice(24);
+  return nacl.secretbox.open(ct, nonce, k);
+}
+function encode(type, payload) {
+  const r = new Uint8Array(5 + payload.length);
+  r[0] = type;
+  r[1] = (payload.length >> 24) & 0xff;
+  r[2] = (payload.length >> 16) & 0xff;
+  r[3] = (payload.length >> 8) & 0xff;
+  r[4] = payload.length & 0xff;
+  r.set(payload, 5);
+  return r;
+}
+function decode(data) {
+  if (data.length < 5) return null;
+  const type = data[0];
+  const len = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4];
+  if (data.length < 5 + len) return null;
+  return { type, payload: data.slice(5, 5 + len) };
+}
 
-function tickClock(){
-  const d=new Date();
-  const pad=(n)=>String(n).padStart(2,'0');
-  document.getElementById('top-clock').textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());
+(async () => {
+  // Probe: is this a mailbox transfer?
+  let probeStatus;
+  try {
+    const probe = await fetch('/raw/' + token, { method: 'HEAD' });
+    probeStatus = probe.status;
+  } catch (e) {
+    showError('Relay unreachable: ' + (e.message || e));
+    return;
+  }
+  if (probeStatus === 200) {
+    return runMailbox();
+  }
+  if (probeStatus === 404) {
+    return runLive();
+  }
+  showError('Relay error: ' + probeStatus);
+})();
+
+// ---- mailbox flow ----
+async function runMailbox() {
+  $('flow-mode').textContent = 'DOWNLOAD';
+  $('flow-tagline').textContent = 'FETCH_CIPHERTEXT · DECRYPT_LOCAL · SAVE';
+  show('loading');
+  $('load-status').textContent = 'downloading';
+
+  try {
+    const resp = await fetch('/raw/' + token);
+    if (!resp.ok) { showError('File not found or expired'); return }
+
+    const contentLength = resp.headers.get('content-length');
+    const totalSize = contentLength ? parseInt(contentLength) : null;
+
+    let encrypted;
+    if (totalSize && resp.body) {
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        const pct = Math.round(received / totalSize * 100);
+        $('progress').style.width = pct + '%';
+        $('ptext').textContent = formatSize(received) + ' / ' + formatSize(totalSize);
+      }
+      encrypted = new Uint8Array(received);
+      let pos = 0;
+      for (const chunk of chunks) { encrypted.set(chunk, pos); pos += chunk.length }
+    } else {
+      $('progress').style.width = '50%';
+      encrypted = new Uint8Array(await resp.arrayBuffer());
+    }
+
+    if (encrypted.length < 24) { showError('File too small to contain encrypted data'); return }
+
+    $('load-status').textContent = 'decrypting';
+    $('progress').style.width = '80%';
+    $('ptext').textContent = 'NaCl secretbox · opening payload';
+
+    const nonce = encrypted.slice(0, 24);
+    const ciphertext = encrypted.slice(24);
+
+    let decrypted;
+    try {
+      decrypted = nacl.secretbox.open(ciphertext, nonce, key);
+    } catch (e) {
+      showError('Decryption error: ' + (e.message || 'corrupted data'));
+      return;
+    }
+    if (!decrypted) { showError('Decryption failed. Wrong key or corrupted file.'); return }
+
+    $('progress').style.width = '100%';
+
+    const fnLen = (decrypted[0] << 24) | (decrypted[1] << 16) | (decrypted[2] << 8) | decrypted[3];
+    const filename = new TextDecoder().decode(decrypted.slice(4, 4 + fnLen));
+    const content = decrypted.slice(4 + fnLen);
+
+    $('fname').textContent = filename;
+    $('file-size').textContent = formatSize(content.length);
+    $('done-transport').textContent = 'mailbox · async';
+    show('complete');
+
+    const blob = new Blob([content]);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  } catch (e) {
+    showError(e.message || 'Download failed');
+  }
+}
+
+// ---- live receive flow (P2P with relay fallback) ----
+let ws = null, pc = null, dc = null;
+let phase = 'lookup';
+let transport = null;
+let metadata = null;
+let bytesReceived = 0;
+let receivedChunks = [];
+let startTime = 0;
+let lastUIUpdate = 0;
+
+function runLive() {
+  $('flow-mode').textContent = 'RECEIVE LIVE';
+  $('flow-tagline').textContent = 'BROWSER ← SENDER · WEBRTC P2P · DECRYPT_LOCAL';
+  phase = 'waiting';
+  show('waiting');
+
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws/' + token);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    // announce presence to sender
+    ws.send(encrypt(encode(MSG_PEER_JOIN, new Uint8Array(0)), key));
+  };
+
+  ws.onerror = () => {
+    showError('Connection to relay lost. Reload to retry.');
+  };
+
+  ws.onclose = () => {
+    if (phase === 'negotiating' || phase === 'receiving') {
+      showError('Connection closed during ' + phase + '. Sender may have disconnected.');
+    }
+  };
+
+  ws.onmessage = async (evt) => {
+    const enc = new Uint8Array(evt.data);
+    const dec = decrypt(enc, key);
+    if (!dec) return;
+    const msg = decode(dec);
+    if (!msg) return;
+
+    if (msg.type === MSG_SDP_OFFER) {
+      phase = 'negotiating';
+      show('negotiating');
+      try {
+        await answerOffer(new TextDecoder().decode(msg.payload));
+      } catch (e) {
+        console.warn('answer offer failed:', e);
+        showError('Failed to negotiate peer connection: ' + (e.message || e));
+      }
+      return;
+    }
+    if (msg.type === MSG_ICE_CANDIDATE && pc) {
+      try {
+        const c = JSON.parse(new TextDecoder().decode(msg.payload));
+        await pc.addIceCandidate(c);
+      } catch (e) { console.warn('addIceCandidate:', e) }
+      return;
+    }
+    if (msg.type === MSG_P2P_FAIL) {
+      transport = 'ws';
+      if (pc) { try { pc.close() } catch (_) { } pc = null; dc = null }
+      phase = 'receiving';
+      show('receiving');
+      $('transport').textContent = 'via relay · P2P unavailable';
+      startTime = performance.now();
+      return;
+    }
+    if (msg.type === MSG_P2P_READY) {
+      return;
+    }
+    if (transport === 'ws') {
+      handleDataMessage(msg);
+      return;
+    }
+  };
+}
+
+async function answerOffer(offerSDP) {
+  pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  dc = pc.createDataChannel('airpipe', { ordered: true, id: 1, negotiated: true });
+  dc.binaryType = 'arraybuffer';
+
+  pc.onicecandidate = (evt) => {
+    if (evt.candidate) {
+      const raw = new TextEncoder().encode(JSON.stringify(evt.candidate.toJSON()));
+      ws.send(encrypt(encode(MSG_ICE_CANDIDATE, raw), key));
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc && (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')) {
+      if (phase === 'receiving' && transport === 'p2p') {
+        showError('Peer connection dropped during transfer.');
+      }
+    }
+  };
+
+  dc.onopen = () => {
+    transport = 'p2p';
+    phase = 'receiving';
+    show('receiving');
+    $('transport').textContent = 'direct · WebRTC DataChannel';
+    startTime = performance.now();
+  };
+
+  dc.onmessage = (evt) => {
+    const enc = new Uint8Array(evt.data);
+    const dec = decrypt(enc, key);
+    if (!dec) return;
+    const msg = decode(dec);
+    if (!msg) return;
+    handleDataMessage(msg);
+  };
+
+  await pc.setRemoteDescription({ type: 'offer', sdp: offerSDP });
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  ws.send(encrypt(encode(MSG_SDP_ANSWER, new TextEncoder().encode(answer.sdp)), key));
+}
+
+function handleDataMessage(msg) {
+  if (msg.type === MSG_METADATA) {
+    try {
+      metadata = JSON.parse(new TextDecoder().decode(msg.payload));
+    } catch (e) {
+      showError('Bad metadata from sender');
+      return;
+    }
+    $('recv-filename').textContent = metadata.filename;
+    $('recv-size').textContent = formatSize(metadata.size);
+    return;
+  }
+  if (msg.type === MSG_CHUNK) {
+    receivedChunks.push(msg.payload);
+    bytesReceived += msg.payload.length;
+    const now = performance.now();
+    if (now - lastUIUpdate > 50 || (metadata && bytesReceived >= metadata.size)) {
+      lastUIUpdate = now;
+      const total = metadata ? metadata.size : 0;
+      const pct = total > 0 ? Math.round(bytesReceived / total * 100) : 0;
+      const elapsed = (now - startTime) / 1000;
+      const speed = elapsed > 0 ? bytesReceived / elapsed : 0;
+      requestAnimationFrame(() => {
+        $('live-progress').style.width = pct + '%';
+        $('live-ptext').textContent = pct + '% · ' + formatSize(bytesReceived) + (total ? ' / ' + formatSize(total) : '');
+        $('speed').textContent = formatSpeed(speed);
+      });
+    }
+    return;
+  }
+  if (msg.type === MSG_COMPLETE) {
+    finishTransfer();
+    return;
+  }
+  if (msg.type === MSG_ERROR) {
+    showError('Sender reported: ' + new TextDecoder().decode(msg.payload));
+    return;
+  }
+}
+
+function finishTransfer() {
+  if (!metadata) {
+    showError('Transfer ended without metadata');
+    return;
+  }
+  const blob = new Blob(receivedChunks);
+  receivedChunks = [];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = metadata.filename;
+  a.click();
+
+  phase = 'complete';
+  $('fname').textContent = metadata.filename;
+  $('file-size').textContent = formatSize(metadata.size);
+  $('done-transport').textContent = transport === 'p2p' ? 'direct · WebRTC' : 'via relay';
+  show('complete');
+
+  try { ws.close() } catch (_) { }
+}
+
+function tickClock() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  $('top-clock').textContent = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
 }
 tickClock();
-setInterval(tickClock,1000);
+setInterval(tickClock, 1000);
 </script>
 </body>
 </html>

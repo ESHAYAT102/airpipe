@@ -531,10 +531,8 @@ func (s *server) handleDownloadPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing token", http.StatusBadRequest)
 		return
 	}
-	if _, ok := s.fileStore.Get(token); !ok {
-		http.Error(w, "not found or expired", http.StatusNotFound)
-		return
-	}
+	// Always serve the page. It probes /raw first; if 404, it falls back to
+	// joining the live WS room for passphrase-derived P2P pairing.
 	writeStatic(w, "download.html")
 }
 

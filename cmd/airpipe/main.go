@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/sanyamgarg/airpipe/internal/archive"
 	"github.com/sanyamgarg/airpipe/internal/crypto"
@@ -61,7 +63,7 @@ func main() {
 	switch args[0] {
 	case "send":
 		if len(args) < 2 {
-			fmt.Println("Usage: airpipe send <file> [file2...]")
+			fmt.Println("Usage: airpipe send [--mode p2p|mailbox] <file> [file2...]")
 			os.Exit(1)
 		}
 		err = cmdSend(*relay, args[1:])
@@ -90,15 +92,23 @@ func main() {
 	}
 }
 
-func cmdSend(relay string, files []string) error {
-	// Validate all paths exist
+func cmdSend(relay string, args []string) error {
+	sendFS := flag.NewFlagSet("send", flag.ContinueOnError)
+	mode := sendFS.String("mode", "", "p2p | mailbox (default: prompt)")
+	if err := sendFS.Parse(args); err != nil {
+		return err
+	}
+	files := sendFS.Args()
+	if len(files) == 0 {
+		return fmt.Errorf("usage: airpipe send [--mode p2p|mailbox] <file> [file2...]")
+	}
+
 	for _, f := range files {
 		if _, err := os.Stat(f); err != nil {
 			return fmt.Errorf("not found: %s", f)
 		}
 	}
 
-	// Determine if we need to zip
 	needsZip := len(files) > 1
 	if !needsZip {
 		info, _ := os.Stat(files[0])
@@ -109,7 +119,6 @@ func cmdSend(relay string, files []string) error {
 	if needsZip {
 		banner("send")
 		fmt.Printf("  Zipping %d items...", len(files))
-
 		zipPath, err := archive.ZipPaths(files)
 		if err != nil {
 			return fmt.Errorf("zip failed: %w", err)
@@ -117,24 +126,74 @@ func cmdSend(relay string, files []string) error {
 		defer os.Remove(zipPath)
 		uploadPath = zipPath
 		filename = "airpipe-transfer.zip"
-
 		stat, _ := os.Stat(zipPath)
 		fmt.Printf("\r  Zipped %d items %s✓%s  %s(%s)%s\n", len(files), colorGreen, colorReset, colorDim, fmtBytes(stat.Size()), colorReset)
 	} else {
 		uploadPath = files[0]
 		filename = filepath.Base(files[0])
 		stat, _ := os.Stat(uploadPath)
-
 		banner("send")
 		fmt.Printf("  %s%s%s  %s%s%s\n", colorBold, filename, colorReset, colorDim, fmtBytes(stat.Size()), colorReset)
 	}
 
-	// Generate passphrase and derive token + key
+	resolvedMode, err := resolveMode(*mode)
+	if err != nil {
+		return err
+	}
+
 	phrase := passphrase.Generate()
 	derivedToken := passphrase.DeriveToken(phrase)
-	derivedKey := passphrase.DeriveKey(phrase)
+	derivedKeyArr := passphrase.DeriveKey(phrase)
+	derivedKey := derivedKeyArr[:]
 
-	// Encrypt the file: [4-byte filename len][filename][content]
+	httpRelay := toHTTP(relay)
+	wsRelay := toWS(relay)
+
+	switch resolvedMode {
+	case "p2p":
+		return sendP2P(wsRelay, httpRelay, uploadPath, filename, phrase, derivedToken, derivedKey)
+	case "mailbox":
+		return sendMailbox(httpRelay, uploadPath, filename, phrase, derivedToken, derivedKey)
+	}
+	return fmt.Errorf("invalid mode: %s", resolvedMode)
+}
+
+func resolveMode(flagVal string) (string, error) {
+	if flagVal != "" {
+		switch strings.ToLower(flagVal) {
+		case "p2p", "direct":
+			return "p2p", nil
+		case "mailbox", "async", "server":
+			return "mailbox", nil
+		default:
+			return "", fmt.Errorf("invalid --mode %q (use p2p or mailbox)", flagVal)
+		}
+	}
+	stat, _ := os.Stdin.Stat()
+	if stat.Mode()&os.ModeCharDevice == 0 {
+		// stdin is not a TTY (piped/script); default to mailbox for backwards compatibility
+		return "mailbox", nil
+	}
+	fmt.Println()
+	fmt.Printf("  Mode?\n")
+	fmt.Printf("    %s[1]%s Direct    Both online now, file goes peer-to-peer\n", colorBrand, colorReset)
+	fmt.Printf("    %s[2]%s Mailbox   Relay holds it ~10 min, receiver picks up later\n", colorBrand, colorReset)
+	fmt.Printf("  Choose %s[1]%s: ", colorBrand, colorReset)
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	line = strings.TrimSpace(strings.ToLower(line))
+	switch line {
+	case "", "1", "p2p", "direct", "d":
+		fmt.Println()
+		return "p2p", nil
+	case "2", "mailbox", "m", "server":
+		fmt.Println()
+		return "mailbox", nil
+	}
+	return "", fmt.Errorf("invalid choice: %s", line)
+}
+
+func sendMailbox(httpRelay, uploadPath, filename, phrase, derivedToken string, derivedKey []byte) error {
 	fmt.Print("  Encrypting...")
 	plaintext, err := os.ReadFile(uploadPath)
 	if err != nil {
@@ -147,7 +206,7 @@ func cmdSend(relay string, files []string) error {
 	payload.Write(fnBytes)
 	payload.Write(plaintext)
 
-	ciphertext, err := crypto.Encrypt(payload.Bytes(), derivedKey[:])
+	ciphertext, err := crypto.Encrypt(payload.Bytes(), derivedKey)
 	if err != nil {
 		return fmt.Errorf("encryption failed: %w", err)
 	}
@@ -155,26 +214,49 @@ func cmdSend(relay string, files []string) error {
 	fmt.Printf("\r  Encrypted %s✓%s\n", colorGreen, colorReset)
 	fmt.Print("  Uploading...\n\n")
 
-	httpRelay := toHTTP(relay)
 	token, err := uploadEncrypted(httpRelay, ciphertext, derivedToken)
 	if err != nil {
 		return err
 	}
 
-	// Display passphrase prominently
+	displayPassphrase(phrase, httpRelay, token, derivedKey)
+	fmt.Printf("  %sE2E encrypted. Expires in 10 minutes.%s\n\n", colorDim, colorReset)
+	return nil
+}
+
+func sendP2P(wsRelay, httpRelay, uploadPath, filename, phrase, derivedToken string, derivedKey []byte) error {
+	displayPassphrase(phrase, httpRelay, derivedToken, derivedKey)
+	fmt.Printf("  %sWaiting for receiver to join...%s\n\n", colorDim, colorReset)
+
+	sender := transfer.NewSender(wsRelay, derivedToken, derivedKey)
+	if err := sender.ConnectLive(); err != nil {
+		return fmt.Errorf("connect to relay: %w", err)
+	}
+	defer sender.Close()
+
+	if err := sender.WaitForPeer(30 * time.Minute); err != nil {
+		return fmt.Errorf("waiting for receiver: %w", err)
+	}
+	fmt.Printf("  %s✓ Receiver joined%s\n", colorGreen, colorReset)
+
+	stat, _ := os.Stat(uploadPath)
+	if err := sender.SendFile(uploadPath, progress); err != nil {
+		return fmt.Errorf("send file: %w", err)
+	}
+	fmt.Printf("\r  %s✓ Sent %s%s  %s(%s)%s\n\n", colorGreen, colorReset, filename, colorDim, fmtBytes(stat.Size()), colorReset)
+	return nil
+}
+
+func displayPassphrase(phrase, httpRelay, token string, key []byte) {
 	fmt.Printf("  %s%s╔══════════════════════════════════════════╗%s\n", colorBold, colorBrand, colorReset)
 	fmt.Printf("  %s%s║  %-40s║%s\n", colorBold, colorBrand, phrase, colorReset)
 	fmt.Printf("  %s%s╚══════════════════════════════════════════╝%s\n\n", colorBold, colorBrand, colorReset)
 	fmt.Printf("  Tell them: %s%s%s\n", colorBold, httpRelay, colorReset)
-	fmt.Printf("  They type the code, they get the file.\n\n")
+	fmt.Printf("  Or run:    %sairpipe download %s%s\n\n", colorBold, phrase, colorReset)
 
-	// Also show QR + URL as fallback for nearby devices
-	url := fmt.Sprintf("%s/d/%s#%s", httpRelay, token, crypto.KeyToBase64(derivedKey[:]))
+	url := fmt.Sprintf("%s/d/%s#%s", httpRelay, token, crypto.KeyToBase64(key))
 	qr.GenerateTerminal(url)
-	fmt.Printf("\n  %s%s%s%s\n\n", colorDim, "Direct link: ", colorReset, url)
-	fmt.Printf("  %sE2E encrypted. Expires in 10 minutes.%s\n\n", colorDim, colorReset)
-
-	return nil
+	fmt.Printf("\n  %sDirect link:%s %s\n\n", colorDim, colorReset, url)
 }
 
 func cmdReceive(relay, destDir string) error {
@@ -226,29 +308,53 @@ func cmdDownload(relay string, args []string) error {
 	banner("download")
 	fmt.Printf("  Passphrase: %s%s%s\n", colorBrand, passphrase.Normalize(phrase), colorReset)
 	fmt.Printf("  Destination: %s%s%s\n\n", colorBold, destDir, colorReset)
-	fmt.Print("  Fetching...")
+	fmt.Print("  Looking up...")
 
 	httpRelay := toHTTP(relay)
-	resp, err := http.Get(httpRelay + "/raw/" + derivedToken)
+	resp, err := http.Head(httpRelay + "/raw/" + derivedToken)
 	if err != nil {
-		return fmt.Errorf("fetch failed: %w", err)
+		return fmt.Errorf("relay unreachable: %w", err)
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("file not found or expired. Check the passphrase and try again")
+		// No mailbox blob — assume the sender is waiting in a P2P room.
+		fmt.Printf("\r  %sNo mailbox transfer; opening direct connection...%s\n\n", colorDim, colorReset)
+		wsRelay := toWS(relay)
+		receiver := transfer.NewReceiver(wsRelay, derivedToken, derivedKey[:])
+		if err := receiver.ConnectLive(); err != nil {
+			return fmt.Errorf("no transfer found for that passphrase. Either the link expired, the sender gave up, or the passphrase is wrong")
+		}
+		defer receiver.Close()
+
+		savedPath, err := receiver.ReceiveFile(destDir, progress)
+		if err != nil {
+			return fmt.Errorf("p2p receive: %w", err)
+		}
+		fmt.Printf("\n  %s✓ Saved: %s%s\n\n", colorGreen, savedPath, colorReset)
+		return nil
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server error: %d", resp.StatusCode)
 	}
 
-	ciphertext, err := io.ReadAll(resp.Body)
+	// Mailbox transfer — fetch the ciphertext blob
+	fmt.Print("\r  Fetching...   ")
+	getResp, err := http.Get(httpRelay + "/raw/" + derivedToken)
+	if err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
+	defer getResp.Body.Close()
+	if getResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server error: %d", getResp.StatusCode)
+	}
+
+	ciphertext, err := io.ReadAll(getResp.Body)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	fmt.Printf("\r  Fetched %s✓%s  %s(%s)%s\n", colorGreen, colorReset, colorDim, fmtBytes(int64(len(ciphertext))), colorReset)
 
-	// Decrypt
 	fmt.Print("  Decrypting...")
 	plaintext, err := crypto.Decrypt(ciphertext, derivedKey[:])
 	if err != nil {
@@ -256,7 +362,6 @@ func cmdDownload(relay string, args []string) error {
 	}
 	fmt.Printf("\r  Decrypted %s✓%s\n", colorGreen, colorReset)
 
-	// Parse payload: [4-byte filename len][filename][content]
 	if len(plaintext) < 4 {
 		return fmt.Errorf("invalid payload")
 	}
@@ -267,7 +372,6 @@ func cmdDownload(relay string, args []string) error {
 	filename := string(plaintext[4 : 4+fnLen])
 	content := plaintext[4+fnLen:]
 
-	// Save file, avoid overwriting
 	savePath := filepath.Join(destDir, filename)
 	if _, err := os.Stat(savePath); err == nil {
 		base := strings.TrimSuffix(filename, filepath.Ext(filename))

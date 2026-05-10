@@ -45,6 +45,22 @@ func NewReceiver(relayURL, token string, key []byte) *Receiver {
 	return &Receiver{relayURL: relayURL, token: token, key: key}
 }
 
+// ConnectLive opens the WS room and announces presence with PEER_JOIN.
+// Used when the receiver holds a passphrase-derived token and the sender
+// is already waiting in the room (passphrase-P2P flow).
+func (r *Receiver) ConnectLive() error {
+	url := fmt.Sprintf("%s/ws/%s", r.relayURL, r.token)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to relay: %w", err)
+	}
+	r.conn = conn
+	if err := writeSignalMsg(r.conn, r.key, NewPeerJoinMessage()); err != nil {
+		return fmt.Errorf("failed to announce peer-join: %w", err)
+	}
+	return nil
+}
+
 func (r *Receiver) Connect() error {
 	url := fmt.Sprintf("%s/ws/%s", r.relayURL, r.token)
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)

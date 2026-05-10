@@ -299,9 +299,11 @@ func TestDownloadNotFound(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
+	// /d/{token} now always returns 200; the page client-side probes /raw
+	// and falls back to live WS pairing if the mailbox blob isn't present.
 	resp, _ := http.Get(srv.URL + "/d/nonexistent")
-	if resp.StatusCode != 404 {
-		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
 	rawResp, _ := http.Get(srv.URL + "/raw/nonexistent")
