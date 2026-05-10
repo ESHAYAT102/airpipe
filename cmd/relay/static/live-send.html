@@ -22,8 +22,14 @@
 <main class="grid single">
 
   <section id="waiting" class="block">
-    <h2>Send to another browser</h2>
-    <p class="block-sub">In the same room? <strong>They scan the QR.</strong> Anywhere else? <strong>Send them the link.</strong> When they open it, both browsers pair and you pick a file.</p>
+    <h2>Share this passphrase</h2>
+    <p class="block-sub">Tell your receiver. They type it at <code id="phrase-domain">airpipe.sanyamgarg.com</code>, scan the QR, or run <code>airpipe download &lt;passphrase&gt;</code>. Both browsers pair, then you pick a file.</p>
+
+    <div class="phrase-display">
+      <div class="phrase-words" id="phrase-display" onclick="copyPhrase()">-</div>
+      <div class="phrase-hint">tap to copy</div>
+    </div>
+
     <div class="qr-wrap" id="qr"></div>
     <div class="code-block" onclick="copyURL()">
       <code id="share-url">-</code>
@@ -87,6 +93,7 @@
 
 <script src="/static/nacl-fast.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="/static/words.js"></script>
 <script>
 const CHUNK=64*1024;
 const NEGOTIATE_TIMEOUT_MS=15000;
@@ -108,9 +115,25 @@ function randomHex(nBytes){
   const b=nacl.randomBytes(nBytes);
   return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+function hexEncode(bytes){
+  return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 function b64encode(bytes){
   let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function sha256(str){
+  const data=new TextEncoder().encode(str);
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return new Uint8Array(hash);
+}
+function generatePassphrase(){
+  const words=[];
+  const arr=new Uint32Array(5);
+  crypto.getRandomValues(arr);
+  for(let i=0;i<4;i++)words.push(AIRPIPE_WORDS[arr[i]%1024]);
+  const num=10+(arr[4]%90);
+  return words.join(' ')+' '+num;
 }
 function formatSize(bytes){
   if(bytes===0)return '0 B';
@@ -163,11 +186,15 @@ function showError(msg){
   $('errmsg').textContent=msg;
 }
 
-const token=randomHex(8);
-const keyBytes=nacl.randomBytes(32);
-const shareURL=location.origin+'/live/'+token+'#'+b64encode(keyBytes);
-
-$('share-url').textContent=shareURL;
+// Passphrase-derived token + key, matches the CLI's passphrase package.
+let currentPhrase='';
+let token='';
+let keyBytes=null;
+let shareURL='';
+let ws=null;
+let pc=null, dc=null;
+let phase='waiting';
+let peerJoined=false;
 
 function copyURL(){
   navigator.clipboard.writeText(shareURL);
@@ -175,8 +202,26 @@ function copyURL(){
   badge.classList.add('show');
   setTimeout(()=>badge.classList.remove('show'),1500);
 }
+function copyPhrase(){
+  navigator.clipboard.writeText(currentPhrase);
+}
 
-(function renderQR(){
+async function init(){
+  currentPhrase=generatePassphrase();
+  const normalized=currentPhrase.toUpperCase().trim().replace(/\s+/g,' ');
+  const tokenHash=await sha256('airpipe:token:'+normalized);
+  token=hexEncode(tokenHash.slice(0,8));
+  keyBytes=await sha256('airpipe:key:'+normalized);
+  // Send receivers to /d/{token} so the same passphrase resolver works whether
+  // they type it on the homepage or scan the QR. /d/ probes the mailbox first
+  // and falls back to live WS pairing on 404.
+  shareURL=location.origin+'/d/'+token+'#'+b64encode(keyBytes);
+
+  $('phrase-display').textContent=currentPhrase;
+  $('phrase-domain').textContent=location.host;
+  $('share-url').textContent=shareURL;
+
+  // QR
   const qr=qrcode(0,'M');
   qr.addData(shareURL);
   qr.make();
@@ -195,65 +240,67 @@ function copyURL(){
   }
   $('qr').innerHTML='';
   $('qr').appendChild(canvas);
-})();
 
-const ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/'+token);
-ws.binaryType='arraybuffer';
+  // open the WS room at the derived token; receiver joins it via /d/ fallback
+  ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/'+token);
+  ws.binaryType='arraybuffer';
+  attachWS();
+}
 
-let pc=null, dc=null;
-let phase='waiting';
-let peerJoined=false;
+function attachWS(){
+  ws.onopen=()=>{
+    const s=$('ws-status');
+    s.classList.remove('err');s.classList.add('live');
+    s.innerHTML='<span class="dot"></span>RELAY ONLINE';
+  };
 
-ws.onopen=()=>{
-  const s=$('ws-status');
-  s.classList.remove('err');s.classList.add('live');
-  s.innerHTML='<span class="dot"></span>RELAY ONLINE';
-};
+  ws.onerror=()=>{
+    const s=$('ws-status');
+    s.classList.remove('live');s.classList.add('err');
+    s.innerHTML='<span class="dot"></span>RELAY OFFLINE';
+    showError('Connection to relay lost. Reload to retry.');
+  };
 
-ws.onerror=()=>{
-  const s=$('ws-status');
-  s.classList.remove('live');s.classList.add('err');
-  s.innerHTML='<span class="dot"></span>RELAY OFFLINE';
-  showError('Connection to relay lost. Reload to retry.');
-};
-
-ws.onclose=()=>{
-  if(phase==='sending'||phase==='negotiating'){
-    showError('Connection closed during '+phase+'. Receiver may have disconnected.');
-  }
-};
-
-ws.onmessage=async(evt)=>{
-  const enc=new Uint8Array(evt.data);
-  const dec=decrypt(enc,keyBytes);
-  if(!dec){
-    return;
-  }
-  const msg=decode(dec);
-  if(!msg)return;
-
-  if(msg.type===MSG_PEER_JOIN){
-    if(!peerJoined){
-      peerJoined=true;
-      phase='select';
-      show('select');
+  ws.onclose=()=>{
+    if(phase==='sending'||phase==='negotiating'){
+      showError('Connection closed during '+phase+'. Receiver may have disconnected.');
     }
-    return;
-  }
-  if(msg.type===MSG_ICE_CANDIDATE&&pc){
-    try{
-      const c=JSON.parse(new TextDecoder().decode(msg.payload));
-      await pc.addIceCandidate(c);
-    }catch(e){console.warn('addIceCandidate:',e)}
-    return;
-  }
-  if(msg.type===MSG_SDP_ANSWER&&pc){
-    try{
-      await pc.setRemoteDescription({type:'answer',sdp:new TextDecoder().decode(msg.payload)});
-    }catch(e){console.warn('setRemoteDescription:',e)}
-    return;
-  }
-};
+  };
+
+  ws.onmessage=async(evt)=>{
+    const enc=new Uint8Array(evt.data);
+    const dec=decrypt(enc,keyBytes);
+    if(!dec){
+      return;
+    }
+    const msg=decode(dec);
+    if(!msg)return;
+
+    if(msg.type===MSG_PEER_JOIN){
+      if(!peerJoined){
+        peerJoined=true;
+        phase='select';
+        show('select');
+      }
+      return;
+    }
+    if(msg.type===MSG_ICE_CANDIDATE&&pc){
+      try{
+        const c=JSON.parse(new TextDecoder().decode(msg.payload));
+        await pc.addIceCandidate(c);
+      }catch(e){console.warn('addIceCandidate:',e)}
+      return;
+    }
+    if(msg.type===MSG_SDP_ANSWER&&pc){
+      try{
+        await pc.setRemoteDescription({type:'answer',sdp:new TextDecoder().decode(msg.payload)});
+      }catch(e){console.warn('setRemoteDescription:',e)}
+      return;
+    }
+  };
+}
+
+init().catch(e=>showError(e.message||String(e)));
 
 const dropzone=$('dropzone');
 const fileinput=$('fileinput');
