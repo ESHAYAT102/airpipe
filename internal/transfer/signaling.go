@@ -233,9 +233,9 @@ func negotiateReceiver(ctx context.Context, conn *websocket.Conn, key []byte, of
 				return nil, tailReader(reads), stopReader, ErrPeerP2PFail
 			}
 		case <-negCtx.Done():
+			// our timer fired before the sender's P2P_FAIL arrived, fall back to ws anyway
 			peer.Close()
-			stopReader()
-			return nil, nil, nil, negCtx.Err()
+			return nil, tailReader(reads), stopReader, ErrPeerP2PFail
 		}
 	}
 }
