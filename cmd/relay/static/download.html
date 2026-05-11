@@ -185,7 +185,7 @@ function decode(data) {
   showError('Relay error: ' + probeStatus);
 })();
 
-// ---- mailbox flow ----
+// mailbox flow
 async function runMailbox() {
   show('loading');
   $('load-status').textContent = 'Downloading';
@@ -258,7 +258,7 @@ async function runMailbox() {
   }
 }
 
-// ---- live receive flow (P2P with relay fallback) ----
+// live receive flow
 let ws = null, pc = null, dc = null;
 let phase = 'lookup';
 let transport = null;

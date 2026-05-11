@@ -3,6 +3,7 @@ package transfer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 )
 
 const NegotiateTimeout = 15 * time.Second
+
+var ErrPeerP2PFail = errors.New("peer p2p fail")
 
 func writeSignalMsg(conn *websocket.Conn, key []byte, msg Message) error {
 	encrypted, err := crypto.EncryptChunk(EncodeMessage(msg), key)
@@ -222,7 +225,7 @@ func negotiateReceiver(ctx context.Context, conn *websocket.Conn, key []byte, of
 				p2pReady = true
 			case MsgTypeP2PFail:
 				peer.Close()
-				return nil, fmt.Errorf("peer reported p2p failure: %s", string(r.msg.Payload))
+				return nil, ErrPeerP2PFail
 			}
 		case <-negCtx.Done():
 			peer.Close()

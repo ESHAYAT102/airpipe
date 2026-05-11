@@ -513,7 +513,7 @@ input[type=file] { display: none; }
   font-family: var(--mono);
 }
 
-/* QR canvas — kept light for camera scan reliability */
+/* QR canvas, kept light so phones scan it cleanly */
 .qr-wrap {
   display: flex;
   justify-content: center;
@@ -538,7 +538,7 @@ input[type=file] { display: none; }
   max-height: 320px;
 }
 
-/* SVG nodes — used by hero animation */
+/* SVG nodes for the hero diagram */
 .node rect {
   fill: var(--surface);
   stroke: var(--fg);
@@ -982,7 +982,7 @@ input[type=file] { display: none; }
   .section-head .section-rule { display: none; }
 }
 
-/* bottom strip — quiet, sentence case, low volume */
+/* bottom strip */
 .bottom-strip {
   position: relative;
   z-index: 1;

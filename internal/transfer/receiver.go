@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,9 +46,7 @@ func NewReceiver(relayURL, token string, key []byte) *Receiver {
 	return &Receiver{relayURL: relayURL, token: token, key: key}
 }
 
-// ConnectLive opens the WS room and announces presence with PEER_JOIN.
-// Used when the receiver holds a passphrase-derived token and the sender
-// is already waiting in the room (passphrase-P2P flow).
+// open the room and ping that we're here
 func (r *Receiver) ConnectLive() error {
 	url := fmt.Sprintf("%s/ws/%s", r.relayURL, r.token)
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
@@ -136,6 +135,10 @@ func (r *Receiver) ReceiveFile(destDir string, progressFn func(received, total i
 	case MsgTypeSDPOffer:
 		peer, err := negotiateReceiver(context.Background(), r.conn, r.key, string(first.Payload))
 		if err != nil {
+			// sender gave up on p2p mid-handshake, read the file over the websocket
+			if errors.Is(err, ErrPeerP2PFail) {
+				return r.recvFile(r.wsReader(), destDir, progressFn, nil)
+			}
 			return "", fmt.Errorf("p2p negotiation: %w", err)
 		}
 		defer peer.Close()

@@ -28,7 +28,7 @@ import (
 
 const defaultRelay = "https://airpipe.sanyamgarg.com"
 
-// ANSI escape codes — orange brand (truecolor #FF4F00) matches landing/web aesthetic
+// ANSI escape codes
 const (
 	colorBrand  = "\033[38;2;255;79;0m"
 	colorGreen = "\033[32m"
@@ -163,35 +163,26 @@ func cmdSend(relay string, args []string) error {
 }
 
 func resolveMode(flagVal string) (string, error) {
+	if flagVal == "p2p" || flagVal == "mailbox" {
+		return flagVal, nil
+	}
 	if flagVal != "" {
-		switch strings.ToLower(flagVal) {
-		case "p2p", "direct":
-			return "p2p", nil
-		case "mailbox", "async", "server":
-			return "mailbox", nil
-		default:
-			return "", fmt.Errorf("invalid --mode %q (use p2p or mailbox)", flagVal)
-		}
+		return "", fmt.Errorf("invalid --mode %q (use p2p or mailbox)", flagVal)
 	}
 	stat, _ := os.Stdin.Stat()
 	if stat.Mode()&os.ModeCharDevice == 0 {
-		// stdin is not a TTY (piped/script); default to mailbox for backwards compatibility
 		return "mailbox", nil
 	}
-	fmt.Println()
-	fmt.Printf("  Mode?\n")
+	fmt.Printf("\n  Mode?\n")
 	fmt.Printf("    %s[1]%s Direct    Both online now, file goes peer-to-peer\n", colorBrand, colorReset)
 	fmt.Printf("    %s[2]%s Mailbox   Relay holds it ~10 min, receiver picks up later\n", colorBrand, colorReset)
 	fmt.Printf("  Choose %s[1]%s: ", colorBrand, colorReset)
-	reader := bufio.NewReader(os.Stdin)
-	line, _ := reader.ReadString('\n')
-	line = strings.TrimSpace(strings.ToLower(line))
-	switch line {
-	case "", "1", "p2p", "direct", "d":
-		fmt.Println()
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	fmt.Println()
+	switch strings.TrimSpace(line) {
+	case "", "1":
 		return "p2p", nil
-	case "2", "mailbox", "m", "server":
-		fmt.Println()
+	case "2":
 		return "mailbox", nil
 	}
 	return "", fmt.Errorf("invalid choice: %s", line)
@@ -322,7 +313,7 @@ func cmdDownload(relay string, args []string) error {
 	resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		// No mailbox blob — assume the sender is waiting in a P2P room.
+		// nothing in the mailbox, try the P2P room
 		fmt.Printf("\r  %sNo mailbox transfer; opening direct connection...%s\n\n", colorDim, colorReset)
 		wsRelay := toWS(relay)
 		receiver := transfer.NewReceiver(wsRelay, derivedToken, derivedKey[:])
@@ -342,7 +333,7 @@ func cmdDownload(relay string, args []string) error {
 		return fmt.Errorf("server error: %d", resp.StatusCode)
 	}
 
-	// Mailbox transfer — fetch the ciphertext blob
+	// pull the ciphertext blob
 	fmt.Print("\r  Fetching...   ")
 	getResp, err := http.Get(httpRelay + "/raw/" + derivedToken)
 	if err != nil {

@@ -593,7 +593,23 @@ func (s *server) handleSendPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
-	writeStaticContentType(w, "install.sh", "text/plain; charset=utf-8")
+	staticFS, _ := fs.Sub(staticFiles, "static")
+	content, err := fs.ReadFile(staticFS, "install.sh")
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	scheme := r.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		if r.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+	out := strings.ReplaceAll(string(content), "__RELAY_URL__", scheme+"://"+r.Host)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write([]byte(out))
 }
 
 func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {

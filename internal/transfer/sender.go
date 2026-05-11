@@ -43,8 +43,7 @@ func (s *Sender) Connect() error {
 	return nil
 }
 
-// ConnectLive opens the WS room and waits silently. Used when the sender
-// holds a passphrase-derived token and the receiver will join later.
+// open the room and sit quiet, receiver shows up later
 func (s *Sender) ConnectLive() error {
 	url := fmt.Sprintf("%s/ws/%s", s.relayURL, s.token)
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
@@ -55,7 +54,7 @@ func (s *Sender) ConnectLive() error {
 	return nil
 }
 
-// WaitForPeer blocks until the receiver joins the room and emits PEER_JOIN.
+// block until the receiver pings us
 func (s *Sender) WaitForPeer(timeout time.Duration) error {
 	s.conn.SetReadDeadline(time.Now().Add(timeout))
 	defer s.conn.SetReadDeadline(time.Time{})
