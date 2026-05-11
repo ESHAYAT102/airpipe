@@ -607,7 +607,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			scheme = "http"
 		}
 	}
-	out := strings.ReplaceAll(string(content), "__RELAY_URL__", scheme+"://"+r.Host)
+	out := strings.Replace(string(content), "__RELAY_URL__", scheme+"://"+r.Host, 1)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write([]byte(out))
 }
