@@ -47,7 +47,11 @@ func banner(mode string) {
 }
 
 func main() {
-	relay := flag.String("relay", defaultRelay, "Relay server URL")
+	defaultRelayURL := defaultRelay
+	if env := strings.TrimSpace(os.Getenv("AIRPIPE_RELAY")); env != "" {
+		defaultRelayURL = env
+	}
+	relay := flag.String("relay", defaultRelayURL, "Relay server URL (or set AIRPIPE_RELAY)")
 	flag.Parse()
 	args := flag.Args()
 

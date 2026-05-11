@@ -31,10 +31,17 @@ cd Airpipe
 docker compose up -d
 ```
 
-Point the CLI at your relay:
+Point the CLI at your relay (per-call):
 
 ```bash
 airpipe --relay https://your-server.example send file.txt
+```
+
+Or set it permanently:
+
+```bash
+export AIRPIPE_RELAY=https://your-server.example
+airpipe send file.txt
 ```
 
 Env vars if you want to tune things: `PORT` (default `8080`), `AIRPIPE_ALLOWED_ORIGINS` (CORS, default `*`), `AIRPIPE_RATE_LIMIT_PER_MIN` (default `60`), `AIRPIPE_LOG_FORMAT` (`json` or `text`).
