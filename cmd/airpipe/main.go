@@ -372,7 +372,7 @@ func cmdDownload(relay string, args []string) error {
 		base := strings.TrimSuffix(filename, filepath.Ext(filename))
 		ext := filepath.Ext(filename)
 		for i := 1; ; i++ {
-			savePath = filepath.Join(destDir, fmt.Sprintf("%s_%d%s", base, i, ext))
+			savePath = filepath.Join(destDir, fmt.Sprintf("%s(%d)%s", base, i, ext))
 			if _, err := os.Stat(savePath); os.IsNotExist(err) {
 				break
 			}
