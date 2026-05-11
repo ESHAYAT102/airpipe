@@ -133,11 +133,11 @@ func (r *Receiver) ReceiveFile(destDir string, progressFn func(received, total i
 
 	switch first.Type {
 	case MsgTypeSDPOffer:
-		peer, err := negotiateReceiver(context.Background(), r.conn, r.key, string(first.Payload))
+		peer, tail, stop, err := negotiateReceiver(context.Background(), r.conn, r.key, string(first.Payload))
 		if err != nil {
-			// sender gave up on p2p mid-handshake, read the file over the websocket
 			if errors.Is(err, ErrPeerP2PFail) {
-				return r.recvFile(r.wsReader(), destDir, progressFn, nil)
+				defer stop()
+				return r.recvFile(tail, destDir, progressFn, nil)
 			}
 			return "", fmt.Errorf("p2p negotiation: %w", err)
 		}
