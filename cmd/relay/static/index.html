@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>AirPipe · encrypted file transfer, peer-to-peer</title>
+    <title>AirPipe · encrypted file transfer</title>
     <meta
       name="description"
       content="Send a file to anyone, peer-to-peer through your browser. Encrypted. Self-hostable."
@@ -386,10 +386,11 @@
 
     <section class="host-clean">
       <div class="host-text">
-        <h2>Run your own relay</h2>
+        <h2>Run AirPipe in the CLI</h2>
         <p>
-          One container. Bundles the landing, the browser pages, and the install
-          script. Or use this one. Either way, the relay never sees your files.
+          Install AirPipe CLI with this command and share files directly from
+          your terminal. <br />
+          CLI is the place we call home.
         </p>
         <p class="host-meta">
           Open source,
@@ -400,6 +401,12 @@
             >github.com/ESHAYAT102/airpipe</a
           >
         </p>
+      </div>
+      <div class="host-cmd">
+        <div class="code-line" onclick="copyCode(this)">
+          <code>curl -sSL https://airpipe.sanyamgarg.com/install.sh | sh</code>
+          <span class="copy-tag">cp</span>
+        </div>
       </div>
     </section>
 
