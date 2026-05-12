@@ -52,7 +52,7 @@ func loadConfig() config {
 	raw := strings.TrimSpace(os.Getenv("AIRPIPE_ALLOWED_ORIGINS"))
 	if raw == "" {
 		c.allowedOrigins = []string{
-			"https://airpipe.sanyamgarg.com",
+			"https://airpipe.eshayat.com",
 			"http://localhost:8080",
 			"http://127.0.0.1:8080",
 		}

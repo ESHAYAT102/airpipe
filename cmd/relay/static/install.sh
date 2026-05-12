@@ -11,7 +11,7 @@ case "$ARCH" in
 esac
 
 RELAY="__RELAY_URL__"
-URL="https://github.com/Sanyam-G/Airpipe/releases/latest/download/airpipe-${OS}-${ARCH}"
+URL="https://github.com/ESHAYAT102/airpipe/releases/latest/download/airpipe-${OS}-${ARCH}"
 
 echo "Downloading airpipe for ${OS}-${ARCH}..."
 curl -sL "$URL" -o /tmp/airpipe
@@ -29,7 +29,7 @@ fi
 
 echo "Done! Run: airpipe send <file>"
 
-if [ "$RELAY" != "https://airpipe.sanyamgarg.com" ] && [ "$RELAY" != "__RELAY_URL__" ]; then
+if [ "$RELAY" != "https://airpipe.eshayat.com" ] && [ "$RELAY" != "__RELAY_URL__" ]; then
     case "$SHELL" in
         */zsh)  RC="$HOME/.zshrc" ;;
         */bash) RC="$HOME/.bashrc" ;;

@@ -4,7 +4,7 @@ Self-hosted file transfer with a passphrase that works anywhere. Files go peer-t
 
 ![demo](demo.gif)
 
-**Try it:** [airpipe.sanyamgarg.com](https://airpipe.sanyamgarg.com)
+**Try it:** [airpipe.eshayat.com](https://airpipe.eshayat.com)
 
 ## How it works in 30 seconds
 
@@ -26,7 +26,7 @@ That's it. One Go binary, ~15 MB image. Bundles the landing page, browser sender
 Or with the bundled `docker-compose.yml` (includes an opt-in Watchtower sidecar that auto-pulls new images):
 
 ```bash
-git clone https://github.com/Sanyam-G/Airpipe
+git clone https://github.com/ESHAYAT102/airpipe
 cd Airpipe
 docker compose up -d
 ```
@@ -49,13 +49,15 @@ Env vars if you want to tune things: `PORT` (default `8080`), `AIRPIPE_ALLOWED_O
 ## CLI
 
 Install:
+
 ```bash
-curl -sSL https://airpipe.sanyamgarg.com/install.sh | sh
+curl -sSL https://airpipe.eshayat.com/install.sh | sh
 ```
 
 Or via Go:
+
 ```bash
-go install github.com/Sanyam-G/Airpipe/cmd/airpipe@latest
+go install github.com/ESHAYAT102/airpipe/cmd/airpipe@latest
 ```
 
 Self-update later: `airpipe update`. Linux + macOS, amd64 + arm64.
@@ -65,6 +67,7 @@ Self-update later: `airpipe update`. Linux + macOS, amd64 + arm64.
 ```bash
 airpipe send report.pdf
 ```
+
 You get a prompt: direct (P2P) or mailbox (relay holds it 10 min). Pick one. The CLI shows a passphrase, a QR, and a link.
 
 ### Download
@@ -74,6 +77,7 @@ airpipe download RIVER FALCON MARBLE 42
 ```
 
 Multiple files or a folder get auto-zipped:
+
 ```bash
 airpipe send file1.txt photos/
 ```
@@ -83,11 +87,12 @@ airpipe send file1.txt photos/
 ```bash
 airpipe receive ./downloads
 ```
+
 Prints a QR. Phone scans it, drops a file, the file lands in `./downloads`. Direct WebRTC, fallback to relay if NAT punching fails.
 
 ## Browser to browser, no install
 
-Open `airpipe.sanyamgarg.com/live`. Get a passphrase + QR. Receiver types the passphrase at the homepage in their browser. Both pair, sender drops a file. No CLI, no app, no account.
+Open `airpipe.eshayat.com/live`. Get a passphrase + QR. Receiver types the passphrase at the homepage in their browser. Both pair, sender drops a file. No CLI, no app, no account.
 
 ## Encryption
 
@@ -98,7 +103,3 @@ The passphrase derives both the relay token and the encryption key via SHA-256 w
 ## Stack
 
 Go relay (gorilla/websocket, pion/webrtc), embedded HTML/CSS/JS frontend (tweetnacl.js for browser crypto), Docker, Cloudflare Tunnel optional. Single static binary.
-
-## License
-
-MIT
